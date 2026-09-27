@@ -389,18 +389,6 @@ class _TimelinePanelState extends State<TimelinePanel> {
             GestureDetector(
               onTap: () {
                 setState(() {
-                  t.muted = !t.muted;
-                  s.frameServer.invalidate();
-                });
-              },
-              child: Icon(isV ? Icons.visibility_outlined : Icons.volume_up,
-                  size: 12,
-                  color: t.muted ? AppTheme.danger : AppTheme.textDim),
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () {
-                setState(() {
                   if (isV) {
                     t.hidden = !t.hidden;
                   } else {
@@ -409,10 +397,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
                   s.frameServer.invalidate();
                 });
               },
-              child: Icon(isV ? Icons.videocam_off_outlined : Icons.volume_off,
+              child: Icon(
+                  isV ? Icons.visibility_outlined : Icons.volume_up,
                   size: 12,
-                  color:
-                      (isV ? t.hidden : t.muted) ? AppTheme.danger : AppTheme.textDim),
+                  color: (isV ? t.hidden : t.muted)
+                      ? AppTheme.danger
+                      : AppTheme.textDim),
             ),
             const SizedBox(width: 6),
             GestureDetector(

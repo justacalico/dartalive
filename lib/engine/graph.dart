@@ -154,6 +154,7 @@ class GraphBuilder {
     _inputCount = 0;
     _seqStack.clear();
     _seqStack.add(seq.id);
+    end = max(end, start + 1);
     final dur = end - start;
     final durSec = dur / fps;
 
@@ -437,7 +438,10 @@ class GraphBuilder {
     final fakePrev = prev.clone('${prev.id}_tail')
       ..position = prev.position
       ..duration = dFrames * 2;
-    b = _applyVideoEffects(b, fakePrev, 0, dFrames * 2, prev.speed);
+    // the tail covers the clip's last dFrames (+dFrames extension), so
+    // keyframed effects evaluate at their end-of-clip values
+    b = _applyVideoEffects(
+        b, fakePrev, max(0, prev.duration - dFrames), dFrames * 2, prev.speed);
     final out = _ctx.lab();
     _ctx.emit('[$b]setpts=PTS-STARTPTS[$out]');
     // now the cur stream comes from caller; we return label + let caller xfade
