@@ -133,7 +133,7 @@ jobs:
         if: startsWith(matrix.target, 'linux')
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev zip dpkg-dev rpm curl
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev zip dpkg-dev rpm curl libmpv-dev mpv
 
       - name: Build Linux
         if: matrix.target == 'linux' || matrix.target == 'linux-arm64'
