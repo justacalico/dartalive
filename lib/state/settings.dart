@@ -19,6 +19,8 @@ class Settings {
   int defaultTransitionFrames;
   String exportDir;
   String layout; // json of dock layout
+  bool showWelcome;
+  List<String> recentProjects;
   Map<String, String> shortcuts; // command -> key combo string
 
   Settings({
@@ -38,8 +40,11 @@ class Settings {
     this.defaultTransitionFrames = 24,
     this.exportDir = '',
     this.layout = '',
+    this.showWelcome = true,
+    List<String>? recentProjects,
     Map<String, String>? shortcuts,
-  }) : shortcuts = shortcuts ?? {};
+  })  : recentProjects = recentProjects ?? [],
+        shortcuts = shortcuts ?? {};
 
   static File _file() {
     final home = Platform.environment['HOME'] ??
@@ -83,6 +88,9 @@ class Settings {
         defaultTransitionFrames: j['defTrans'] as int? ?? 24,
         exportDir: j['exportDir'] as String? ?? '',
         layout: j['layout'] as String? ?? '',
+        showWelcome: j['showWelcome'] as bool? ?? true,
+        recentProjects:
+            (j['recent'] as List?)?.map((e) => '$e').toList() ?? const [],
         shortcuts: (j['shortcuts'] as Map?)
                 ?.map((k, v) => MapEntry('$k', '$v')) ??
             {},
@@ -105,6 +113,8 @@ class Settings {
         'defTrans': defaultTransitionFrames,
         'exportDir': exportDir,
         'layout': layout,
+        'showWelcome': showWelcome,
+        'recent': recentProjects,
         'shortcuts': shortcuts,
       };
 }

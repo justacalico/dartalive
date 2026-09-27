@@ -11,6 +11,7 @@ import 'state/shortcuts.dart';
 import 'theme.dart';
 import 'ui/dialogs.dart';
 import 'ui/dock.dart';
+import 'ui/welcome.dart';
 import 'ui/panels/bin.dart';
 import 'ui/panels/effect_stack.dart';
 import 'ui/panels/effects_library.dart';
@@ -470,6 +471,9 @@ class _EditorAppState extends State<EditorApp> {
   @override
   Widget build(BuildContext context) {
     final s = widget.state;
+    if (s.welcomeVisible) {
+      return WelcomeScreen(state: s);
+    }
     return Focus(
       autofocus: true,
       onKeyEvent: (node, e) {
