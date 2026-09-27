@@ -143,7 +143,7 @@ jobs:
           flutter build linux --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
           SUFFIX=""
           [ "${{ matrix.target }}" = "linux-arm64" ] && SUFFIX="-arm64"
-          OUT="artifacts"; mkdir -p "$OUT"
+          OUT="$GITHUB_WORKSPACE/artifacts"; mkdir -p "$OUT"
           BUNDLE="build/linux/$( [ "${{ matrix.target }}" = "linux-arm64" ] && echo arm64 || echo x64)/release/bundle"
           tar -czf "$OUT/dartalive-linux$SUFFIX.tar.gz" -C "$BUNDLE" .
           (cd "$BUNDLE" && zip -qr "$OUT/dartalive-linux$SUFFIX.zip" .)
