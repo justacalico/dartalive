@@ -164,6 +164,7 @@ class EditorState extends ChangeNotifier {
       _rebuildServers();
       _precacheMedia();
       notifyListeners();
+      _showFrame(0);
     } catch (e) {
       statusMessage = 'Open failed: $e';
       notifyListeners();
@@ -582,6 +583,11 @@ class EditorState extends ChangeNotifier {
     fs.ensure(seq, frame);
     final jpg = fs.cached(frame);
     if (jpg != null) _decodeToImage(frame, jpg);
+    // pre-decode the next few frames so playback doesn't hitch on decode
+    for (var i = 1; i <= 4; i++) {
+      final j = fs.cached(frame + i);
+      if (j != null) _decodeToImage(frame + i, j);
+    }
     displayedFrame = frame;
   }
 

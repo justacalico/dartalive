@@ -48,6 +48,7 @@ class _MixerPanelState extends State<MixerPanel> {
               value: t.gain.clamp(0, 2),
               min: 0,
               max: 2,
+              onChangeStart: t.locked ? null : (_) => s.pushUndo('Track gain'),
               onChanged: t.locked
                   ? null
                   : (v) {
@@ -55,7 +56,6 @@ class _MixerPanelState extends State<MixerPanel> {
                       s.dirty = true;
                       s.frameServer.invalidate();
                     },
-              onChangeEnd: (_) => s.pushUndo('Track gain'),
             ),
           ),
         ),
@@ -69,8 +69,8 @@ class _MixerPanelState extends State<MixerPanel> {
             value: t.pan.clamp(-1, 1),
             min: -1,
             max: 1,
+            onChangeStart: t.locked ? null : (_) => s.pushUndo('Track pan'),
             onChanged: t.locked ? null : (v) => setState(() => t.pan = v),
-            onChangeEnd: (_) => s.pushUndo('Track pan'),
           ),
         ),
         Text('pan ${t.pan.toStringAsFixed(2)}',
