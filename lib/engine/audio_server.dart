@@ -67,7 +67,7 @@ class AudioServer {
       return '';
     }
     final gb = GraphBuilder(project: project(), resolver: resolver());
-    final g = gb.build(seq, startFrame, end, audio: true);
+    final g = gb.build(seq, startFrame, end, audio: true, video: false);
     if (g.audioLabel.isEmpty) {
       _done = true;
       _currentUrl = null;

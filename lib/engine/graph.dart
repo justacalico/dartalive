@@ -143,13 +143,16 @@ class GraphBuilder {
   /// Build the graph for [seq] frames [start..end). Relative time base: the
   /// returned stream covers [start, end) with PTS starting near 0.
   /// [timeOffset] shifts all clips (for nested sequence clips).
-  GraphResult build(Sequence seq, int start, int end, {bool audio = true}) {
+  GraphResult build(Sequence seq, int start, int end,
+      {bool audio = true, bool video = true}) {
     _ctx = _Ctx();
     _inputCount = 0;
     final dur = end - start;
     final durSec = dur / fps;
 
     // ---- video ----
+    String vout = '';
+    if (video) {
     final vtracks = seq.videoTracks;
     String cur = _ctx.lab();
     _ctx.emit(
@@ -170,23 +173,33 @@ class GraphBuilder {
         baseN++;
       }
     }
-    String vout;
     if (baseN == 0) {
       vout = cur;
     } else {
       vout = 'vout';
       _ctx.emit('[$cur]copy[$vout]');
     }
+    }
 
     // ---- audio ----
     String aout = '';
     final astreams = <String>[];
     if (audio) {
-      for (final track in seq.audioTracks) {
+      // audio tracks plus audio-bearing clips on video tracks
+      // (nested sequences, sound dropped on V tracks)
+      for (final track in seq.tracks) {
         if (track.muted) continue;
         for (final clip in track.sorted) {
           if (!clip.enabled) continue;
           if (clip.end <= start || clip.position >= end) continue;
+          final asset = project.assetById(clip.assetId);
+          if (asset == null) continue;
+          if (track.kind == TrackKind.video &&
+              !asset.hasAudio &&
+              asset.type != AssetType.sequence) {
+            continue;
+          }
+          if (track.kind == TrackKind.audio && !asset.hasAudio) continue;
           final s = _emitClipAudio(seq, clip, start, end, 0);
           if (s != null) astreams.add(s);
         }
@@ -866,11 +879,24 @@ class GraphBuilder {
       }
     }
     if (streams.isEmpty) return null;
-    if (streams.length == 1) return streams.first;
-    final out = _ctx.lab();
+    String mixed;
+    if (streams.length == 1) {
+      mixed = streams.first;
+    } else {
+      final out = _ctx.lab();
+      _ctx.emit(
+          '${streams.map((e) => '[$e]').join()}amix=inputs=${streams.length}:duration=longest:normalize=0[$out]');
+      mixed = out;
+    }
+    // shift the sub-sequence mix into the parent window: sub window starts
+    // at parent-time (visStart); the returned stream must cover the parent
+    // render window [winStart, winEnd).
+    final relMs = ((visStart - winStart) / fps * 1000).round();
+    final totalSec = (winEnd - winStart) / fps;
+    final o = _ctx.lab();
     _ctx.emit(
-        '${streams.map((e) => '[$e]').join()}amix=inputs=${streams.length}:duration=longest:normalize=0[$out]');
-    return out;
+        '[$mixed]adelay=${relMs}ms:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
+    return o;
   }
 
   String _atempoChain(double speed) {
