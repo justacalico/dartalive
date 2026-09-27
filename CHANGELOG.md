@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.1.1](https://gitlab.com/HttpAnimations/dartalive/compare/51d7ea93c7813deaa31bf6677e42203d7a67d31e..v0.1.1) - 2026-09-27
+#### Bug Fixes
+- 对话框订阅取消 - ([bdf9691](https://gitlab.com/HttpAnimations/dartalive/commit/bdf9691b5fe7ca973733f69cc1861de6fa4d18fb)) - HttpAnimations
+- 评审二轮 — 嵌套序列变速、音频服务端、坐标与撤销 - ([385116e](https://gitlab.com/HttpAnimations/dartalive/commit/385116eb1e17b0b41ac026dc5e7cab124e11ec4d)) - HttpAnimations
+- 评审修复 — 渲染图、帧服务器竞态、导入器、停靠拖放 - ([51d7ea9](https://gitlab.com/HttpAnimations/dartalive/commit/51d7ea93c7813deaa31bf6677e42203d7a67d31e)) - HttpAnimations
+
+- - -
+
 ## [v0.1.0](https://gitlab.com/HttpAnimations/dartalive/compare/056eb495e851928d1fae7d4eb77e44c94fa0b0d2..v0.1.0) - 2026-09-27
 #### Features
 - 双击嵌套序列打开序列标签 - ([ea7afcf](https://gitlab.com/HttpAnimations/dartalive/commit/ea7afcf5fab55d2de8b5a2f21c8079923c8c1279)) - HttpAnimations
