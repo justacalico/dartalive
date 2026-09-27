@@ -71,7 +71,7 @@ class Effects {
       ParamDef('sx', 'Scale X', min: 0, max: 8, def: 1, expr: true),
       ParamDef('sy', 'Scale Y', min: 0, max: 8, def: 1, expr: true),
       ParamDef('rot', 'Rotation', min: -360, max: 360, def: 0, expr: true, unit: '°'),
-      ParamDef('op', 'Opacity', min: 0, max: 1, def: 1, expr: true),
+      ParamDef('op', 'Opacity', min: 0, max: 1, def: 1),
       ParamDef('anchorX', 'Anchor X', min: 0, max: 1, def: 0.5),
       ParamDef('anchorY', 'Anchor Y', min: 0, max: 1, def: 0.5),
     ]),

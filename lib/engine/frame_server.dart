@@ -4,7 +4,6 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:typed_data';
 
-
 import '../models/model.dart';
 import '../io/media_resolver.dart';
 import 'ffmpeg.dart';
@@ -30,8 +29,7 @@ class FrameServer {
   int _renderHead = 0; // next frame the ffmpeg process will emit
   int _renderStart = 0;
   bool _building = false;
-  final ListQueue<Uint8List> _jpegBuf = ListQueue();
-  BytesBuilder _inflight = BytesBuilder();
+  int _gen = 0;
 
   /// frame index -> jpeg bytes
   final Map<int, Uint8List> _cache = {};
@@ -42,26 +40,18 @@ class FrameServer {
   final _frameCtr = StreamController<int>.broadcast();
   Stream<int> get onFrame => _frameCtr.stream;
 
-  int _graphVersion = 0;
-  int get graphVersion => _graphVersion;
-
-  /// Call when the timeline/project changed so we drop stale frames.
-  void invalidate({bool hard = false}) {
-    _graphVersion++;
+  /// Call when the timeline/project changed so stale frames are dropped.
+  void invalidate() {
+    _gen++;
     _killProc();
-    if (hard) {
-      _cache.clear();
-      _lru.clear();
-      cacheBytes = 0;
-      _jpegBuf.clear();
-    }
+    _cache.clear();
+    _lru.clear();
+    cacheBytes = 0;
   }
 
   void _killProc() {
     _proc?.kill();
     _proc = null;
-    _jpegBuf.clear();
-    _inflight = BytesBuilder();
   }
 
   /// Returns cached jpeg for [frame] if present.
@@ -70,24 +60,22 @@ class FrameServer {
   bool hasFrame(int f) => _cache.containsKey(f);
 
   /// Ensure rendering progresses toward covering frames >= [frame].
-  /// The server restarts only when [frame] is outside the current forward
-  /// pass or when the requested sequence changed.
   void ensure(Sequence seq, int frame) {
     final needsRestart = _proc == null ||
         _seq?.id != seq.id ||
         frame < _renderStart ||
-        frame > _renderHead + 5;
+        frame > _renderHead + 5 ||
+        (frame < _renderHead && !_cache.containsKey(frame));
     if (!needsRestart || _building) return;
-    _building = true; // set synchronously so double-ensure can't double-start
-    _restart(seq, frame);
+    _building = true; // synchronous so a second ensure can't double-start
+    _restart(seq, frame, _gen);
   }
 
-  Future<void> _restart(Sequence seq, int start) async {
+  Future<void> _restart(Sequence seq, int start, int gen) async {
     _killProc();
     _seq = seq;
     _renderStart = start;
     _renderHead = start;
-    _building = true;
     try {
       final end = max(seq.duration, start + 1);
       final w = max(16, (project().width * scale).round() & ~1);
@@ -101,7 +89,7 @@ class FrameServer {
       )..enableHwaccel();
       final g = gb.build(seq, start, end, audio: false);
       final args = <String>[
-        '-hide_banner', '-loglevel', 'error',
+        '-hide_banner', '-loglevel', 'error', '-nostdin',
         ...g.inputArgs,
         '-filter_complex', g.filterComplex,
         '-map', '[${g.videoLabel}]',
@@ -111,19 +99,31 @@ class FrameServer {
         '-',
       ];
       final p = await Process.start(FFmpeg.ffmpegPath, args);
+      if (gen != _gen) {
+        p.kill(); // invalidated while starting
+        return;
+      }
       _proc = p;
       var emitted = start;
+      final inflight = BytesBuilder(); // per-render buffer
       p.stdout.listen((chunk) {
-        _inflight.add(chunk);
-        final data = _inflight.takeBytes();
+        if (gen != _gen) return; // stale process output
+        inflight.add(chunk);
+        final data = inflight.takeBytes();
         var off = 0;
         // scan for jpeg SOI/EOI pairs
         while (true) {
           final soi = _find(data, [0xFF, 0xD8], off);
-          if (soi < 0) break;
+          if (soi < 0) {
+            // keep a trailing lone 0xFF — could be a split SOI marker
+            if (data.isNotEmpty && data[data.length - 1] == 0xFF) {
+              inflight.add(data.sublist(data.length - 1));
+            }
+            break;
+          }
           final eoi = _find(data, [0xFF, 0xD9], soi + 2);
           if (eoi < 0) {
-            _inflight.add(data.sublist(soi));
+            inflight.add(data.sublist(soi));
             break;
           }
           final jpg = Uint8List.fromList(data.sublist(soi, eoi + 2));
@@ -161,7 +161,7 @@ class FrameServer {
       final v = _cache.remove(f);
       if (v != null) cacheBytes -= v.length;
     }
-    _frameCtr.add(frame);
+    if (!_frameCtr.isClosed) _frameCtr.add(frame);
   }
 
   /// A single still frame at [frame] — used when paused/scrubbing to a
@@ -169,7 +169,6 @@ class FrameServer {
   Future<Uint8List?> still(Sequence seq, int frame) async {
     if (_cache.containsKey(frame)) return _cache[frame];
     ensure(seq, frame);
-    // wait briefly for the frame
     for (var i = 0; i < 60; i++) {
       await Future.delayed(const Duration(milliseconds: 25));
       final j = _cache[frame];
@@ -179,6 +178,7 @@ class FrameServer {
   }
 
   void dispose() {
+    _gen++;
     _killProc();
     _frameCtr.close();
   }

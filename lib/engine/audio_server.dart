@@ -20,6 +20,7 @@ class AudioServer {
   final _buffer = BytesBuilder();
   bool _done = false;
   int _gen = 0;
+  bool _serving = false;
 
   AudioServer(this.project, this.resolver);
 
@@ -28,9 +29,14 @@ class AudioServer {
     _server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _port = _server!.port;
     _server!.listen((req) async {
-      req.response.headers.contentType = ContentType('audio','wav');
+      if (_serving) {
+        req.response.statusCode = 409;
+        await req.response.close();
+        return;
+      }
+      _serving = true;
+      req.response.headers.contentType = ContentType('audio', 'wav');
       req.response.headers.chunkedTransferEncoding = true;
-      // stream whatever the current render produces
       final gen = _gen;
       try {
         while (gen == _gen) {
@@ -44,6 +50,7 @@ class AudioServer {
           }
         }
       } catch (_) {}
+      _serving = false;
       try {
         await req.response.close();
       } catch (_) {}
@@ -84,10 +91,23 @@ class AudioServer {
       '-ar', '${project().sampleRate}',
       '-',
     ];
+    final gen = _gen;
     _proc = await Process.start(FFmpeg.ffmpegPath, args);
-    _proc!.stdout.listen((c) => _buffer.add(c),
-        onDone: () => _done = true, onError: (_) => _done = true);
+    if (gen != _gen) {
+      _proc!.kill();
+      return '';
+    }
+    _proc!.stdout.listen((c) {
+      _buffer.add(c);
+      // cap buffered audio ~16MB — consumer never falls far behind anyway
+      const cap = 16 << 20;
+      if (_buffer.length > cap) {
+        final b = _buffer.takeBytes();
+        _buffer.add(b.sublist(cap ~/ 2)); // keep the tail
+      }
+    }, onDone: () => _done = true, onError: (_) => _done = true);
     _proc!.stderr.drain<void>();
+    _proc!.exitCode.then((_) => _done = true);
     _currentUrl = 'http://127.0.0.1:$_port/a$_gen.wav';
     return _currentUrl!;
   }

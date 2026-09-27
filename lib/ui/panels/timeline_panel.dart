@@ -24,6 +24,7 @@ class TimelinePanel extends StatefulWidget {
 class _TimelinePanelState extends State<TimelinePanel> {
   final _hCtrl = ScrollController();
   final _vCtrl = ScrollController();
+  final _hdrCtrl = ScrollController();
   final _rulerCtrl = ScrollController();
   bool _syncing = false;
   double _trackH = 52;
@@ -43,6 +44,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
   @override
   void initState() {
     super.initState();
+    _vCtrl.addListener(() {
+      if (_hdrCtrl.hasClients &&
+          (_hdrCtrl.offset - _vCtrl.offset).abs() > 0.5) {
+        _hdrCtrl.jumpTo(_vCtrl.offset);
+      }
+    });
     _hCtrl.addListener(() {
       if (_syncing) return;
       _syncing = true;
@@ -58,6 +65,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   void dispose() {
     _hCtrl.dispose();
     _vCtrl.dispose();
+    _hdrCtrl.dispose();
     _rulerCtrl.dispose();
     super.dispose();
   }
@@ -332,7 +340,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
   // ------------------------------------------------------------------
   Widget _headers(Sequence seq) {
     return ListView(
-      controller: _vCtrl,
+      controller: _hdrCtrl,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         for (final t in seq.tracks) _trackHeader(seq, t),
@@ -557,12 +565,14 @@ class _TimelinePanelState extends State<TimelinePanel> {
     final offline = a != null && s.offlineAssets.contains(a.id);
 
     return Positioned(
+      key: ValueKey(c.id),
       left: left,
       top: top + 1,
       width: w,
       height: _trackH - 2,
       child: DragTarget<String>(
         onAcceptWithDetails: (d) {
+          if (track.locked) return;
           if (d.data.startsWith('effect:')) {
             final fid = d.data.substring(7);
             final def = Effects.byId(fid);
@@ -594,6 +604,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         selected: sel,
         offline: offline,
         isVideo: isV,
+        trackH: _trackH,
         isEffectHover: cand.isNotEmpty,
       ))),
     );
@@ -615,6 +626,7 @@ class _ClipWidget extends StatefulWidget {
   final bool offline;
   final bool isVideo;
   final bool isEffectHover;
+  final double trackH;
 
   const _ClipWidget({
     required this.clip,
@@ -628,6 +640,7 @@ class _ClipWidget extends StatefulWidget {
     required this.offline,
     required this.isVideo,
     this.isEffectHover = false,
+    required this.trackH,
   });
 
   @override
@@ -701,6 +714,7 @@ class _ClipWidgetState extends State<_ClipWidget> {
         child: GestureDetector(
           behavior: HitTestBehavior.translucent,
           onHorizontalDragStart: (_) {
+            if (widget.track.locked) return;
             _mode = left ? _DragMode.trimL : _DragMode.trimR;
             s.beginGesture('Trim clip');
           },
@@ -883,10 +897,9 @@ class _ClipWidgetState extends State<_ClipWidget> {
   /// Drag vertically across tracks: move the clip (and linked partners)
   /// to the track under the pointer if the kind matches.
   void _moveTracks() {
-    const th = 52.0; // matches _trackH in parent
     final tracks = widget.seq.tracks;
     final curIdx = tracks.indexOf(widget.track);
-    final deltaTracks = (_dragDy / th).round();
+    final deltaTracks = (_dragDy / widget.trackH).round();
     if (deltaTracks == 0) return;
     final targetIdx = (curIdx + deltaTracks).clamp(0, tracks.length - 1);
     final target = tracks[targetIdx];
@@ -897,7 +910,7 @@ class _ClipWidgetState extends State<_ClipWidget> {
     }
     widget.track.clips.remove(c);
     target.clips.add(c);
-    _dragDy -= deltaTracks * th;
+    _dragDy -= (targetIdx - curIdx) * widget.trackH;
     s.duringGesture();
   }
 

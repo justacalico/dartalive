@@ -123,7 +123,7 @@ class _EditorAppState extends State<EditorApp> {
         s.seek(0);
         break;
       case Commands.goEnd:
-        s.seek(s.seqDuration);
+        s.seek(max(0, s.seqDuration - 1));
         break;
       case Commands.prevEdit:
         if (seq == null) break;
@@ -148,11 +148,13 @@ class _EditorAppState extends State<EditorApp> {
         break;
       case Commands.markClip:
         if (seq == null) break;
+        // topmost video track wins, then audio
         for (final t in seq.tracks) {
           final c = t.clipAt(s.playhead);
           if (c != null) {
             s.inPoint = c.position;
             s.outPoint = c.end;
+            break;
           }
         }
         s.refresh();
@@ -344,7 +346,7 @@ class _EditorAppState extends State<EditorApp> {
         final target = seq.videoTracks.isNotEmpty &&
                 _assetIsVideo(s, c.assetId)
             ? seq.videoTracks.last
-            : seq.audioTracks.first;
+            : (seq.audioTracks.isEmpty ? seq.tracks.last : seq.audioTracks.first);
         c.id = newId();
         c.position = s.playhead;
         c.linkGroup = null;

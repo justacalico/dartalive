@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -180,7 +182,7 @@ class _SettingsDialogState extends State<SettingsDialog> {
               onSelectionChanged: (v) => setState(() {
                 st.previewScale = v.first;
                 widget.state.frameServer.scale = v.first;
-                widget.state.frameServer.invalidate(hard: true);
+                widget.state.frameServer.invalidate();
               }),
             ),
           ]),
@@ -376,10 +378,12 @@ class _ExportDialogBodyState extends State<_ExportDialogBody> {
     _w = p.width;
     _h = p.height;
     _fps = p.fpsValue;
-    widget.state.exporter.updates.listen((_) {
+    _expSub = widget.state.exporter.updates.listen((_) {
       if (mounted) setState(() {});
     });
   }
+
+  StreamSubscription? _expSub;
 
   @override
   Widget build(BuildContext context) {
@@ -491,9 +495,9 @@ class _ExportDialogBodyState extends State<_ExportDialogBody> {
   }
 
   Widget _num(String label, int v, void Function(int) set) {
-    final c = TextEditingController(text: '$v');
-    return TextField(
-      controller: c,
+    // initialValue keeps the field's own state across rebuilds
+    return TextFormField(
+      initialValue: '$v',
       keyboardType: TextInputType.number,
       style: const TextStyle(fontSize: 11.5),
       decoration: InputDecoration(labelText: label),

@@ -118,7 +118,7 @@ class _ProgramMonitorState extends State<ProgramMonitor> {
       onSelected: (v) {
         s.settings.previewScale = v;
         s.frameServer.scale = v;
-        s.frameServer.invalidate(hard: true);
+        s.frameServer.invalidate();
         s.settings.save();
       },
       itemBuilder: (_) => [

@@ -66,8 +66,10 @@ class _BinPanelState extends State<BinPanel> {
               final n =
                   await promptText(context, 'New bin', 'Name', initial: 'Bin');
               if (n == null) return;
-              setState(() => s.project.folders
-                  .add(BinFolder(id: newId(), name: n)));
+              setState(() {
+                s.project.folders.add(BinFolder(id: newId(), name: n));
+                s.dirty = true;
+              });
             }),
         IconButton(
             icon: const Icon(Icons.movie_creation_outlined, size: 15),
@@ -276,7 +278,10 @@ class _BinPanelState extends State<BinPanel> {
         case 'proxy':
           final src = s.project.resolvedPaths[a.id];
           if (src == null) break;
-          final dir = '${s.projectDir}/.cache/proxies';
+          final base = s.projectDir.isEmpty
+              ? Directory.systemTemp.path
+              : s.projectDir;
+          final dir = '$base/.cache/proxies';
           Directory(dir).createSync(recursive: true);
           final dst = '$dir/${a.id}.mp4';
           s.status('Generating proxy for ${a.name}…');
@@ -284,6 +289,7 @@ class _BinPanelState extends State<BinPanel> {
               width: s.settings.proxyWidth);
           if (ok) {
             a.proxyPath = '.cache/proxies/${a.id}.mp4';
+            s.dirty = true;
             s.status('Proxy ready: ${a.name}');
           } else {
             s.status('Proxy failed: ${a.name}');
@@ -308,6 +314,7 @@ class _BinPanelState extends State<BinPanel> {
               initial: a.name);
           if (n != null) {
             a.name = n;
+            s.dirty = true;
             s.refresh();
           }
           break;
@@ -319,6 +326,7 @@ class _BinPanelState extends State<BinPanel> {
             a.fileName = p.split('/').last;
             s.project.resolvedPaths[a.id] = p;
             s.offlineAssets.remove(a.id);
+            s.dirty = true;
             s.refresh();
           }
           break;

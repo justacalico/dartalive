@@ -61,36 +61,46 @@ class MediaResolver {
     }
     if (!search || a.fileName == null) return null;
 
-    // recursive search under project dir, filename first then hash
-    final candidates = <File>[];
-    try {
-      await for (final e in Directory(projectDir)
-          .list(recursive: true, followLinks: false)) {
-        if (e is! File) continue;
-        final base = e.uri.pathSegments.last;
-        if (base == a.fileName) {
-          // filename match; verify size/hash loosely
-          final st = await e.stat();
-          if (a.fileSize == 0 || st.size == a.fileSize) return e.path;
-          candidates.add(e);
-        }
+    // one directory scan per resolveAll; filename first, hash when known
+    final listing = await _listFiles();
+    final nameMatch = listing
+        .where((f) => f.uri.pathSegments.last == a.fileName)
+        .toList();
+    for (final f in nameMatch) {
+      final st = await f.stat();
+      if (a.fileSize != 0 && st.size != a.fileSize) continue;
+      if (a.hash != null && a.fileSize > 0) {
+        if (await hashFile(f.path) == a.hash) return f.path;
+      } else {
+        return f.path;
       }
-    } catch (_) {}
-    if (candidates.isNotEmpty) return candidates.first.path;
-
+    }
+    // hash search over the whole tree (renamed/moved file)
     if (a.hash != null && a.fileSize > 0) {
-      try {
-        await for (final e in Directory(projectDir)
-            .list(recursive: true, followLinks: false)) {
-          if (e is! File) continue;
-          final st = await e.stat();
-          if (st.size != a.fileSize) continue;
-          if (await hashFile(e.path) == a.hash) return e.path;
-        }
-      } catch (_) {}
+      for (final f in listing) {
+        final st = await f.stat();
+        if (st.size != a.fileSize) continue;
+        if (await hashFile(f.path) == a.hash) return f.path;
+      }
     }
     return null;
   }
+
+  List<File>? _listing;
+  Future<List<File>> _listFiles() async {
+    if (_listing != null) return _listing!;
+    final out = <File>[];
+    try {
+      await for (final e in Directory(projectDir)
+          .list(recursive: true, followLinks: false)) {
+        if (e is File) out.add(e);
+      }
+    } catch (_) {}
+    return _listing = out;
+  }
+
+  /// Drop the cached directory listing (e.g. after relink or media copy).
+  void invalidateListing() => _listing = null;
 
   static Future<String> hashFile(String path) async {
     final f = File(path);

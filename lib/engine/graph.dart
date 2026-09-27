@@ -55,6 +55,7 @@ class GraphBuilder {
 
   _Ctx _ctx = _Ctx();
   int _inputCount = 0;
+  final Set<String> _seqStack = {}; // recursion guard for nested sequences
 
   String _c(double t) => t.toStringAsFixed(4);
 
@@ -70,6 +71,11 @@ class GraphBuilder {
   }
 
   _ClipIn _clipInput(MediaAsset a, double inSec, double durSec) {
+    if (a.type == AssetType.audio) {
+      return _ClipIn()
+        ..lavfi =
+            'color=c=0x333333:s=${width}x$height:r=${_c(fps)}:d=${_c(durSec)},format=rgba';
+    }
     if (a.type == AssetType.video ||
         a.type == AssetType.audio ||
         a.type == AssetType.image) {
@@ -146,6 +152,8 @@ class GraphBuilder {
       {bool audio = true, bool video = true}) {
     _ctx = _Ctx();
     _inputCount = 0;
+    _seqStack.clear();
+    _seqStack.add(seq.id);
     final dur = end - start;
     final durSec = dur / fps;
 
@@ -253,7 +261,16 @@ class GraphBuilder {
       // nested sequence: build sub-graph over its own coords
       final sub = project.sequenceById(a.sequenceId ?? '');
       if (sub == null) return null;
-      src = _emitSequence(sub, visDur, visStart - pos, speed);
+      if (_seqStack.contains(sub.id)) return null; // cycle guard
+      _seqStack.add(sub.id);
+      src = _emitSequence(sub, (visDur * speed).ceil(),
+          ((visStart - pos) * speed).round());
+      _seqStack.remove(sub.id);
+      if (speed != 1) {
+        final sp = _ctx.lab();
+        _ctx.emit('[$src]setpts=(PTS-STARTPTS)/$speed[$sp]');
+        src = sp;
+      }
     } else if (a.type == AssetType.title) {
       src = _emitTitle(a, visDur);
     } else if (a.type == AssetType.color) {
@@ -262,12 +279,19 @@ class GraphBuilder {
       _ctx.emit(
           'color=c=$c:s=${width}x$height:r=${_c(fps)}:d=${_c(durSec)}[$src]');
     } else {
-      final inp = _clipInput(a, inSec, durSec + 1 / fps);
+      // read enough source to cover speed>1 playback
+      final inp = _clipInput(a, inSec, (durSec + 1 / fps) * max(1.0, clip.speed));
       src = _ctx.lab();
       if (inp.index >= 0) {
         _ctx.emit('[${inp.index}:v]fps=${_c(fps)}[$src]');
       } else {
         _ctx.emit('${inp.lavfi}[$src]');
+      }
+      if (clip.speed != 1) {
+        final sp = _ctx.lab();
+        _ctx.emit(
+            '[$src]setpts=(PTS-STARTPTS)/${clip.speed}[$sp]');
+        src = sp;
       }
     }
 
@@ -440,9 +464,9 @@ class GraphBuilder {
         TransitionKind.fadeWhite => 'fadewhite',
       };
 
-  /// Emit a nested sequence's composite covering [durFrames] of sub-sequence
-  /// time starting at [subOffset] frames into it, played at [speed].
-  String _emitSequence(Sequence sub, int durFrames, int subOffset, double speed) {
+  /// Emit a nested sequence's composite covering [durFrames] frames of
+  /// sub-sequence time starting at [subOffset] sub-frames in.
+  String _emitSequence(Sequence sub, int durFrames, int subOffset) {
     // Build video over sub coords covering [subOffset, subOffset+durFrames)
     final vtracks = sub.videoTracks;
     String cur = _ctx.lab();
@@ -456,7 +480,8 @@ class GraphBuilder {
         if (clip.end <= subOffset || clip.position >= subOffset + durFrames) {
           continue;
         }
-        final stream = _emitClipVideo(sub, clip, subOffset, subOffset + durFrames, 0, speed);
+        final stream =
+            _emitClipVideo(sub, clip, subOffset, subOffset + durFrames, 0, 1.0);
         if (stream == null) continue;
         final out = _ctx.lab();
         _ctx.emit(
@@ -567,8 +592,16 @@ class GraphBuilder {
 
   String _v(ClipEffect fx, String p, int atFrame, double def) =>
       _c(fx.at(p, atFrame, fps, def));
-  String? _vx(ClipEffect fx, String p, double def) =>
-      keyframesToExpr(fx.keyframes[p], fps, def);
+  /// Per-frame expression for a keyframed param. `t` is stream-local
+  /// seconds; keyframes are clip-local, so after segmentation the caller's
+  /// [atFrame] (segment start in clip frames) shifts `t` back to clip time.
+  String? _vx(ClipEffect fx, String p, int atFrame, double def) {
+    final e = keyframesToExpr(fx.keyframes[p], fps, def);
+    if (e == null) return null;
+    if (atFrame == 0) return e;
+    return e.replaceAllMapped(
+        RegExp(r'\bt\b'), (_) => '(t+${atFrame / fps})');
+  }
 
   String _applyVideoEffect(String input, ClipEffect fx, EffectDef def, Clip clip,
       int localDur, int atFrame, double speed) {
@@ -581,12 +614,12 @@ class GraphBuilder {
     switch (def.id) {
       case 'transform':
         {
-          final sx = _vx(fx, 'sx', 1) ?? _v(fx, 'sx', atFrame, 1);
-          final sy = _vx(fx, 'sy', 1) ?? _v(fx, 'sy', atFrame, 1);
-          final rot = _vx(fx, 'rot', 0) ?? _v(fx, 'rot', atFrame, 0);
-          final x = _vx(fx, 'x', 0) ?? _v(fx, 'x', atFrame, 0);
-          final y = _vx(fx, 'y', 0) ?? _v(fx, 'y', atFrame, 0);
-          final op = _vx(fx, 'op', 1) ?? _v(fx, 'op', atFrame, 1);
+          final sx = _vx(fx, 'sx', atFrame, 1) ?? _v(fx, 'sx', atFrame, 1);
+          final sy = _vx(fx, 'sy', atFrame, 1) ?? _v(fx, 'sy', atFrame, 1);
+          final rot = _vx(fx, 'rot', atFrame, 0) ?? _v(fx, 'rot', atFrame, 0);
+          final x = _vx(fx, 'x', atFrame, 0) ?? _v(fx, 'x', atFrame, 0);
+          final y = _vx(fx, 'y', atFrame, 0) ?? _v(fx, 'y', atFrame, 0);
+          final op = _v(fx, 'op', atFrame, 1); // static per segment
           var s = chain(
               "scale=w='iw*($sx)':h='ih*($sy)':eval=frame");
           s = _appendTo(
@@ -676,7 +709,7 @@ class GraphBuilder {
           if (f.isEmpty) return input;
           final path = resolver?.toAbsolute(f) ?? f;
           return chain(
-              "lut3d=file='${esc(path)}':interp=${fx.strVal('interp', 'tetrahedral')}");
+              "lut3d=file='${path.replaceAll("'", "\\'")}':interp=${fx.strVal('interp', 'tetrahedral')}");
         }
       case 'blur':
         {
@@ -725,12 +758,11 @@ class GraphBuilder {
             return chain('colorchannelmixer=$m');
           }
           // blend sepia with original via blend filter
-          chain("split[a${fx.id}][b${fx.id}]");
-          _ctx.emit(
-              '[b${fx.id}]colorchannelmixer=$m[bp${fx.id}]');
+          final sa = _ctx.lab(), sb = _ctx.lab(), sbp = _ctx.lab();
+          chain("split[$sa][$sb]");
+          _ctx.emit('[$sb]colorchannelmixer=$m[$sbp]');
           final out = _ctx.lab();
-          _ctx.emit(
-              '[a${fx.id}][bp${fx.id}]blend=all_mode=normal:all_opacity=$mix[$out]');
+          _ctx.emit('[$sa][$sbp]blend=all_mode=normal:all_opacity=$mix[$out]');
           return out;
         }
       case 'invert':
@@ -759,13 +791,13 @@ class GraphBuilder {
       case 'drawtext':
         {
           final text = escText(fx.strVal('text', ''));
-          final x = _vx(fx, 'x', 0.5) ?? _v(fx, 'x', atFrame, 0.5);
-          final y = _vx(fx, 'y', 0.5) ?? _v(fx, 'y', atFrame, 0.5);
+          final x = _vx(fx, 'x', atFrame, 0.5) ?? _v(fx, 'x', atFrame, 0.5);
+          final y = _vx(fx, 'y', atFrame, 0.5) ?? _v(fx, 'y', atFrame, 0.5);
           final box = fx.values['box'] == true
               ? ':box=1:boxcolor=${fx.strVal('boxcolor', 'black@0.5')}:boxborderw=10'
               : '';
           final font = fx.strVal('font', '');
-          final fontArg = font.isEmpty ? '' : ":font='${esc(font)}'";
+          final fontArg = font.isEmpty ? '' : ":font='${font.replaceAll("'", "\\'")}'";
           return chain(
               "drawtext=text='$text':fontsize=${_v(fx, 'size', atFrame, 64)}:fontcolor=${fx.strVal('color', 'white')}:x='(w-text_w)*($x)':y='(h-text_h)*($y)'$box$fontArg");
         }
@@ -808,8 +840,17 @@ class GraphBuilder {
     if (a.type == AssetType.sequence) {
       // audio of nested sequence: mix sub-sequence audio
       final sub = project.sequenceById(a.sequenceId ?? '');
-      if (sub == null) return null;
-      return _emitSequenceAudio(sub, clip, winStart, winEnd, seqOffset);
+      if (sub == null || _seqStack.contains(sub.id)) return null;
+      _seqStack.add(sub.id);
+      var out = _emitSequenceAudio(sub, clip, winStart, winEnd, seqOffset);
+      _seqStack.remove(sub.id);
+      if (out != null && clip.speed != 1) {
+        final o = _ctx.lab();
+        _ctx.emit(
+            '[$out]asetpts=PTS-STARTPTS/${clip.speed},${_atempoChain(clip.speed)}[$o]');
+        out = o;
+      }
+      return out;
     }
     if (!a.hasAudio && a.type != AssetType.audio) return null;
     if (a.type != AssetType.audio && a.type != AssetType.video) return null;
@@ -858,7 +899,7 @@ class GraphBuilder {
     final totalSec = (winEnd - winStart) / fps;
     final o = _ctx.lab();
     _ctx.emit(
-        '[$s]adelay=${relMs}ms:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
+        '[$s]adelay=$relMs:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
     return o;
   }
 
@@ -895,14 +936,14 @@ class GraphBuilder {
     final totalSec = (winEnd - winStart) / fps;
     final o = _ctx.lab();
     _ctx.emit(
-        '[$mixed]adelay=${relMs}ms:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
+        '[$mixed]adelay=$relMs:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
     return o;
   }
 
   String _atempoChain(double speed) {
     // atempo accepts 0.5..100; chain for extreme slowdowns
     final parts = <String>[];
-    var v = speed;
+    var v = speed.clamp(0.01, 10000.0);
     while (v < 0.5) {
       parts.add('atempo=0.5');
       v /= 0.5;
@@ -925,7 +966,7 @@ class GraphBuilder {
     switch (fx.effectId) {
       case 'gain':
         {
-          final expr = _vx(fx, 'v', 0);
+          final expr = _vx(fx, 'v', 0, 0);
           if (expr != null) {
             return chain("volume='pow(10,($expr)/20)':eval=frame");
           }

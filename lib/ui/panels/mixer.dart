@@ -70,7 +70,12 @@ class _MixerPanelState extends State<MixerPanel> {
             min: -1,
             max: 1,
             onChangeStart: t.locked ? null : (_) => s.pushUndo('Track pan'),
-            onChanged: t.locked ? null : (v) => setState(() => t.pan = v),
+            onChanged: t.locked
+                ? null
+                : (v) {
+                    setState(() => t.pan = v);
+                    s.dirty = true;
+                  },
           ),
         ),
         Text('pan ${t.pan.toStringAsFixed(2)}',

@@ -172,12 +172,14 @@ class Exporter {
       final g = gb.build(seq, j.inFrame, j.outFrame, audio: true);
       final args = <String>[
         '-hide_banner',
+        '-nostdin',
         '-y',
         ...g.inputArgs,
         '-filter_complex', g.filterComplex,
         if (j.preset.videoArgs.isNotEmpty) '-map',
         if (j.preset.videoArgs.isNotEmpty) '[${g.videoLabel}]',
-        '-map', '[${g.audioLabel}]',
+        if (!j.preset.audioArgs.contains('-an')) '-map',
+        if (!j.preset.audioArgs.contains('-an')) '[${g.audioLabel}]',
         ...j.preset.videoArgs,
         ...j.preset.audioArgs,
         '-progress', 'pipe:2',
@@ -222,7 +224,7 @@ class Transcoder {
   static Future<bool> run(String src, String dst, ExportPreset preset) async {
     final args = <String>[
       '-hide_banner', '-y', '-i', src,
-      ...preset.videoArgs.isEmpty ? ['-c:v', 'copy'] : preset.videoArgs,
+      ...preset.videoArgs.isEmpty ? const ['-vn'] : preset.videoArgs,
       ...preset.audioArgs,
       dst,
     ];

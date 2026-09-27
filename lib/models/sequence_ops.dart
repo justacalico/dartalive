@@ -168,22 +168,53 @@ class SeqOps {
     final prev = idx > 0 ? sorted[idx - 1] : null;
     final next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
     if (prev == null && next == null) return false;
+    // validate before mutating so a partial slide can't corrupt the track
+    if (prev != null &&
+        !_canTrimRight(prev, prev.end + deltaFrames, fps,
+            maxSourceSec: maxSourceSec)) {
+      return false;
+    }
+    if (next != null &&
+        !_canTrimLeft(next, next.position + deltaFrames, fps)) {
+      return false;
+    }
     if (prev != null) {
-      final ok = trimRight(seq, prev, prev.end + deltaFrames, fps,
+      trimRight(seq, prev, prev.end + deltaFrames, fps,
           maxSourceSec: maxSourceSec);
-      if (!ok) return false;
     }
     if (next != null) {
-      final ok = trimLeft(seq, next, next.position + deltaFrames, fps,
+      trimLeft(seq, next, next.position + deltaFrames, fps,
           maxSourceSec: maxSourceSec);
-      if (!ok) return false;
     }
     clip.position += deltaFrames;
     return true;
   }
 
+  static bool _canTrimLeft(Clip c, int newPos, double fps) {
+    if (newPos >= c.end) return false;
+    final delta = newPos - c.position;
+    return c.offsetSec + delta / fps * c.speed >= -0.0001;
+  }
+
+  static bool _canTrimRight(Clip c, int newEnd, double fps,
+      {double maxSourceSec = double.infinity}) {
+    if (newEnd <= c.position) return false;
+    final newDur = newEnd - c.position;
+    return c.offsetSec + newDur / fps * c.speed <= maxSourceSec + 0.0001;
+  }
+
   /// Insert [clip] at position, pushing later clips right (insert edit).
-  static void rippleInsert(Track track, Clip clip, double fps) {
+  static void rippleInsert(Track track, Clip clip, double fps,
+      {Sequence? seq}) {
+    // split a clip that straddles the insert point
+    for (final c in List.of(track.clips)) {
+      if (c.position < clip.position && c.end > clip.position) {
+        if (seq != null) {
+          splitAt(seq, clip.position, fps);
+        }
+        break;
+      }
+    }
     for (final c in track.clips) {
       if (c.position >= clip.position) c.position += clip.duration;
     }

@@ -33,10 +33,14 @@ class KdenliveImport {
           (int.parse(prof.getAttribute('frame_rate_den') ?? '1'));
     }
 
+    final fnum = int.tryParse(prof?.getAttribute('frame_rate_num') ?? '');
+    final fden = int.tryParse(prof?.getAttribute('frame_rate_den') ?? '');
     final project = Project(name: _basename(path).replaceAll('.kdenlive', ''),
         width: _w,
         height: _h,
-        fps: Rational(_fps.round(), 1),
+        fps: (fnum != null && fden != null && fden != 0)
+            ? Rational(fnum, fden)
+            : Rational((_fps * 1000).round(), 1000),
         sampleRate: 48000);
 
     // ---- collect producers and chains ----
@@ -104,9 +108,7 @@ class KdenliveImport {
             fileName: _basename(res),
             hash: _prop(prod, 'kdenlive:file_hash'),
             fileSize: int.tryParse(_prop(prod, 'kdenlive:file_size') ?? '') ?? 0,
-            durationSec: _prop(prod, 'length') != null
-                ? int.parse(_prop(prod, 'length')!).abs() / _fps
-                : 0,
+            durationSec: _len(prod) / _fps,
             width: int.tryParse(_prop(prod, 'meta.media.width') ?? '') ?? 0,
             height:
                 int.tryParse(_prop(prod, 'meta.media.height') ?? '') ?? 0,
@@ -450,17 +452,12 @@ class KdenliveImport {
         }
       case 'volume':
         {
+          // kdenlive gain is already dB
           final g = keys('gain') ?? keys('level');
           final e = fx('gain');
           if (g != null) {
-            final looksLinear = g.every((k) => k.value.abs() <= 3);
-            e.keyframes['v'] = g
-                .map((k) => Keyframe(
-                    k.frame,
-                    looksLinear
-                        ? (k.value <= 0 ? -60 : 20 * (log(k.value) / ln10))
-                        : k.value))
-                .toList();
+            e.keyframes['v'] =
+                g.map((k) => Keyframe(k.frame, k.value)).toList();
             e.values['v'] = e.keyframes['v']!.first.value;
           } else {
             e.values['v'] = prop('gain', 0);

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../engine/exporter.dart';
@@ -20,13 +22,20 @@ class ExportPanel extends StatefulWidget {
 class _ExportPanelState extends State<ExportPanel> {
   ExportPreset _preset = ExportPreset.list[0];
   bool _range = false;
+  StreamSubscription? _sub;
 
   @override
   void initState() {
     super.initState();
-    widget.state.exporter.updates.listen((_) {
+    _sub = widget.state.exporter.updates.listen((_) {
       if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 
   @override

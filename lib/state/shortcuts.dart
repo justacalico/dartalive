@@ -233,7 +233,11 @@ class KeyCombo {
       '${ctrl ? 'ctrl+' : ''}${alt ? 'alt+' : ''}${shift ? 'shift+' : ''}${meta ? 'meta+' : ''}$key';
 
   bool matches(KeyCombo o) =>
-      key == o.key && ctrl == o.ctrl && alt == o.alt && shift == o.shift;
+      key == o.key &&
+      ctrl == o.ctrl &&
+      alt == o.alt &&
+      shift == o.shift &&
+      meta == o.meta;
 
   @override
   String toString() => encode().replaceAll('space', 'Space');

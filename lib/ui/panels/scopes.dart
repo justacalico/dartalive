@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -35,7 +36,12 @@ class _ScopesPanelState extends State<ScopesPanel> {
   }
 
   Future<void> _analyze(ui.Image img) async {
-    final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+    ByteData? data;
+    try {
+      data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+    } catch (_) {
+      return; // image disposed mid-await
+    }
     if (data == null) return;
     const bins = 64;
     final r = List<int>.filled(bins, 0);
@@ -43,7 +49,7 @@ class _ScopesPanelState extends State<ScopesPanel> {
     final b = List<int>.filled(bins, 0);
     final l = List<int>.filled(bins, 0);
     final px = data.buffer.asUint32List();
-    final step = (px.length / 40000).ceil().clamp(1, 1000);
+    final step = (px.length / 40000).ceil().clamp(1, 1000).toInt();
     for (var i = 0; i < px.length; i += step) {
       final p = px[i];
       final pr = p & 0xff;
