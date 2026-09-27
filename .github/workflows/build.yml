@@ -160,9 +160,9 @@ jobs:
           flutter build windows --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
           SUFFIX="x86_64"
           [ "${{ matrix.target }}" = "windows-arm64" ] && SUFFIX="arm64"
-          mkdir -p artifacts
+          OUT="$GITHUB_WORKSPACE/artifacts"; mkdir -p "$OUT"
           cd build/windows/*/runner/Release
-          7z a "../../../../artifacts/dartalive-windows-$SUFFIX.zip" .
+          7z a "$OUT/dartalive-windows-$SUFFIX.zip" .
 
       - name: Build macOS
         if: matrix.target == 'macos'
