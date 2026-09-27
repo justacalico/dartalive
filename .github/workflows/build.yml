@@ -233,7 +233,7 @@ jobs:
 
   gitlab-sync:
     name: Sync release back to GitLab
-    if: always()
+    if: needs.release.result == 'success' || needs.nightly.result == 'success'
     needs: [release, nightly]
     runs-on: ubuntu-latest
     steps:

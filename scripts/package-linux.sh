@@ -9,7 +9,7 @@ tar -czf "$OUT/$NAME-linux-x86_64.tar.gz" -C "$BUNDLE" .
 (cd "$BUNDLE" && zip -qr "$OUT/$NAME-linux-x86_64.zip" .)
 
 # .deb
-DEB="$OUT/debwork/$NAME"
+DEB="/tmp/debwork/$NAME"
 mkdir -p "$DEB/DEBIAN" "$DEB/usr/lib/$NAME" "$DEB/usr/bin" "$DEB/usr/share/applications"
 cp -r "$BUNDLE/." "$DEB/usr/lib/$NAME/"
 cat > "$DEB/DEBIAN/control" <<EOC
@@ -33,7 +33,7 @@ dpkg-deb --build "$DEB" "$OUT/$NAME-${VER#v}-amd64.deb"
 
 # .rpm
 if command -v rpmbuild >/dev/null; then
-  TOP="$OUT/rpmwork"
+  TOP="/tmp/rpmwork"
   mkdir -p "$TOP"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
   cat > "$TOP/SPECS/$NAME.spec" <<EOC
 Name: $NAME
@@ -63,7 +63,7 @@ if [ ! -f /tmp/appimagetool ]; then
   chmod +x /tmp/appimagetool
 fi
 if [ -x /tmp/appimagetool ]; then
-  AI="$OUT/appimage/$NAME.AppDir"
+  AI="/tmp/appimage/$NAME.AppDir"
   mkdir -p "$AI/usr/bin" "$AI/usr/share/applications"
   cp -r "$BUNDLE/." "$AI/usr/bin/"
   cat > "$AI/$NAME.desktop" <<EOC
