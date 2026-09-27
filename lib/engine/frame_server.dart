@@ -4,6 +4,7 @@ import 'dart:math';
 import 'dart:io';
 import 'dart:typed_data';
 
+
 import '../models/model.dart';
 import '../io/media_resolver.dart';
 import 'ffmpeg.dart';
@@ -77,6 +78,7 @@ class FrameServer {
         frame < _renderStart ||
         frame > _renderHead + 5;
     if (!needsRestart || _building) return;
+    _building = true; // set synchronously so double-ensure can't double-start
     _restart(seq, frame);
   }
 

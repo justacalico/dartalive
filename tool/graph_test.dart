@@ -27,8 +27,9 @@ Future<void> main(List<String> args) async {
   }
   final seq = p.mainSequence ?? p.sequences.first;
   final frame = args.length > 2 ? int.parse(args[2]) : 100;
+  final endF = args.length > 3 ? int.parse(args[3]) : frame + 60;
   final gb = GraphBuilder(project: p, resolver: resolver, width: 1280, height: 720);
-  final g = gb.build(seq, frame, frame + 60, audio: false);
+  final g = gb.build(seq, frame, endF, audio: false);
   File('/tmp/graph.txt').writeAsStringSync(g.filterComplex);
   print('inputs: ${g.inputArgs.length ~/ 4} filter bytes: ${g.filterComplex.length}');
   final ffargs = [
