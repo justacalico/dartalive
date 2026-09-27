@@ -106,6 +106,21 @@ class EditorState extends ChangeNotifier {
   // ------------------------------------------------------------------
 
   bool _serversReady = false;
+  bool welcomeVisible = true;
+
+  void dismissWelcome() {
+    welcomeVisible = false;
+    notifyListeners();
+  }
+
+  void _pushRecent(String path) {
+    settings.recentProjects.remove(path);
+    settings.recentProjects.insert(0, path);
+    if (settings.recentProjects.length > 10) {
+      settings.recentProjects.length = 10;
+    }
+    settings.save();
+  }
 
   void _newProject() {
     project = Project(name: 'Untitled', fps: const Rational(60, 1));
@@ -137,6 +152,7 @@ class EditorState extends ChangeNotifier {
 
   void newProject() {
     stopPlayback();
+    welcomeVisible = false;
     _newProject();
   }
 
@@ -146,6 +162,8 @@ class EditorState extends ChangeNotifier {
       final p = await DalFile.read(path);
       project = p;
       projectPath = path;
+      welcomeVisible = false;
+      _pushRecent(path);
       projectDir = File(path).parent.path;
       resolver = MediaResolver(projectDir);
       offlineAssets.clear();
@@ -176,6 +194,7 @@ class EditorState extends ChangeNotifier {
   /// original file; media resolves relative to its directory.
   void loadImportedProject(Project p, String sourcePath) {
     stopPlayback();
+    welcomeVisible = false;
     project = p;
     projectDir = File(sourcePath).parent.path;
     resolver = MediaResolver(projectDir);
@@ -211,6 +230,8 @@ class EditorState extends ChangeNotifier {
     if (target == null) return;
     await DalFile.write(target, project);
     projectPath = target;
+    welcomeVisible = false;
+    _pushRecent(target);
     final dir = File(target).parent.path;
     if (resolver == null || resolver!.projectDir != dir) {
       resolver = MediaResolver(dir);

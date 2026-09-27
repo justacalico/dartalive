@@ -29,12 +29,14 @@ void main() async {
   }
   final settings = Settings.load();
   final state = EditorState(settings);
+  state.welcomeVisible = settings.showWelcome;
   runApp(kIsWeb ? LandingApp() : EditorAppRoot(state: state));
   // --open=/path/project.dal
   if (!kIsWeb) {
     for (final a in const String.fromEnvironment('OPEN', defaultValue: '')
         .split(',')
         .where((e) => e.isNotEmpty)) {
+      state.welcomeVisible = false;
       if (a.endsWith('.kdenlive')) {
         KdenliveImport.run(a).then((p) => state.loadImportedProject(p, a));
       } else {
