@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import '../models/effects.dart';
@@ -21,6 +22,7 @@ class _Ctx {
   final StringBuffer filt = StringBuffer();
   final List<String> inputs = [];
   int n = 0;
+  void emit(String s) => filt.write('$s;\n');
   String lab() => 'g${n++}';
   int addInput(List<String> args) {
     inputs.addAll(args);
@@ -59,10 +61,24 @@ class GraphBuilder {
 
   /// Resolve a clip's media to an ffmpeg input. For av assets uses -ss/-t
   /// input seeking; images loop; lavfi sources are emitted inside the graph.
+  bool _isOffline(MediaAsset a) {
+    if (!a.isAv || a.relPath == null) return false;
+    if (project.resolvedPaths.containsKey(a.id)) {
+      return !File(project.resolvedPaths[a.id]!).existsSync();
+    }
+    final p = _assetPath(a);
+    return p == null || !File(p).existsSync();
+  }
+
   _ClipIn _clipInput(MediaAsset a, double inSec, double durSec) {
     if (a.type == AssetType.video ||
         a.type == AssetType.audio ||
         a.type == AssetType.image) {
+      if (_isOffline(a)) {
+        return _ClipIn()
+          ..lavfi =
+              'color=c=0x333333:s=${width}x$height:r=${_c(fps)}:d=${_c(durSec)},format=rgba';
+      }
       final path = _assetPath(a);
       final args = <String>[];
       if (a.type == AssetType.image) {
@@ -136,7 +152,7 @@ class GraphBuilder {
     // ---- video ----
     final vtracks = seq.videoTracks;
     String cur = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         'color=c=black:s=${width}x$height:r=${_c(fps)}:d=${_c(durSec)}[$cur]');
     var baseN = 0;
     for (var ti = vtracks.length - 1; ti >= 0; ti--) {
@@ -148,7 +164,7 @@ class GraphBuilder {
         final stream = _emitClipVideo(seq, clip, start, end, 0, null);
         if (stream == null) continue;
         final out = _ctx.lab();
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[$cur][$stream]overlay=x=0:y=0:eof_action=pass[$out]');
         cur = out;
         baseN++;
@@ -159,7 +175,7 @@ class GraphBuilder {
       vout = cur;
     } else {
       vout = 'vout';
-      _ctx.filt.writeln('[$cur]copy[$vout]');
+      _ctx.emit('[$cur]copy[$vout]');
     }
 
     // ---- audio ----
@@ -179,15 +195,15 @@ class GraphBuilder {
       // model audio lives on audio tracks only.
       if (astreams.isEmpty) {
         aout = 'aout';
-        _ctx.filt.writeln(
+        _ctx.emit(
             'anullsrc=cl=stereo:r=${project.sampleRate}:d=${_c(durSec)}[$aout]');
       } else if (astreams.length == 1) {
         aout = 'aout';
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[${astreams.first}]aformat=sample_fmts=fltp:sample_rates=${project.sampleRate}:channel_layouts=stereo[$aout]');
       } else {
         aout = 'aout';
-        _ctx.filt.writeln(
+        _ctx.emit(
             '${astreams.map((e) => '[$e]').join()}amix=inputs=${astreams.length}:duration=longest:normalize=0,'
             'aformat=sample_fmts=fltp:sample_rates=${project.sampleRate}:channel_layouts=stereo[$aout]');
       }
@@ -231,17 +247,21 @@ class GraphBuilder {
     } else if (a.type == AssetType.color) {
       src = _ctx.lab();
       final c = _ffmpegColor(a.color ?? 'black');
-      _ctx.filt.writeln(
+      _ctx.emit(
           'color=c=$c:s=${width}x$height:r=${_c(fps)}:d=${_c(durSec)}[$src]');
     } else {
       final inp = _clipInput(a, inSec, durSec + 1 / fps);
       src = _ctx.lab();
-      _ctx.filt.writeln('[${inp.index}:v]fps=${_c(fps)}[$src]');
+      if (inp.index >= 0) {
+        _ctx.emit('[${inp.index}:v]fps=${_c(fps)}[$src]');
+      } else {
+        _ctx.emit('${inp.lavfi}[$src]');
+      }
     }
 
     // normalize to project frame, transparency-capable
     var s = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '[$src]scale=w=${width}:h=${height}:force_original_aspect_ratio=decrease,'
         'pad=${width}:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
         'setsar=1,format=rgba[$s]');
@@ -267,7 +287,7 @@ class GraphBuilder {
         final head = s;
         final out = _ctx.lab();
         final xkind = _xfadeName(tr.kind);
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[$tail][$head]xfade=transition=$xkind:duration=${_c(dFrames / fps)}:offset=${_c(dFrames / fps)}[$out]');
         s = out;
         // pair output covers [pos - dFrames, pos + visDur): shift left by
@@ -289,17 +309,17 @@ class GraphBuilder {
     var s = stream;
     if (leadFrames < 0) {
       final o = _ctx.lab();
-      _ctx.filt.writeln('[$s]setpts=PTS-${_c(-leadFrames / fps)}/TB[$o]');
+      _ctx.emit('[$s]setpts=PTS-${_c(-leadFrames / fps)}/TB[$o]');
       return o;
     }
     if (leadFrames == 0) return s;
     final pad = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         'color=c=black@0:s=${width}x$height:r=${_c(fps)}:d=${_c(leadFrames / fps)},format=rgba,setsar=1[$pad]');
     final base = _ctx.lab();
-    _ctx.filt.writeln('[$s]setpts=PTS-STARTPTS[$base]');
+    _ctx.emit('[$s]setpts=PTS-STARTPTS[$base]');
     final out = _ctx.lab();
-    _ctx.filt.writeln('[$pad][$base]concat=n=2:v=1:a=0[$out]');
+    _ctx.emit('[$pad][$base]concat=n=2:v=1:a=0[$out]');
     return out;
   }
 
@@ -347,7 +367,7 @@ class GraphBuilder {
     final tailIn = prev.offsetSec +
         (prev.duration - dFrames) / fps * prev.speed;
     String base;
-    if (pa.isAv && pa.relPath != null) {
+    if (pa.isAv && pa.relPath != null && !_isOffline(pa)) {
       final canExtend = tailIn + (2 * needSec * prev.speed) <=
           pa.durationSec + 0.05;
       final inp = _clipInput(
@@ -355,22 +375,26 @@ class GraphBuilder {
           max(0, tailIn),
           canExtend ? 2 * needSec + 1 / fps : needSec + 1 / fps);
       base = _ctx.lab();
-      _ctx.filt.writeln('[${inp.index}:v]fps=${_c(fps)}[$base]');
+      if (inp.index >= 0) {
+        _ctx.emit('[${inp.index}:v]fps=${_c(fps)}[$base]');
+      } else {
+        _ctx.emit('${inp.lavfi}[$base]');
+      }
       if (!canExtend) {
         final b2 = _ctx.lab();
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[$base]tpad=stop_mode=clone:stop=${_c(needSec)}[$b2]');
         base = b2;
       }
     } else {
       // static source (color/title/image rendered as still)
       base = _ctx.lab();
-      _ctx.filt.writeln(
+      _ctx.emit(
           'color=c=black@0:s=${width}x$height:r=${_c(fps)}:d=${_c(2 * needSec)}[$base]');
       // Note: for color clips we could repeat the color; keep simple.
     }
     var b = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '[$base]scale=w=${width}:h=${height}:force_original_aspect_ratio=decrease,'
         'pad=${width}:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
         'setsar=1,format=rgba[$b]');
@@ -380,7 +404,7 @@ class GraphBuilder {
       ..duration = dFrames * 2;
     b = _applyVideoEffects(b, fakePrev, 0, dFrames * 2, prev.speed);
     final out = _ctx.lab();
-    _ctx.filt.writeln('[$b]setpts=PTS-STARTPTS[$out]');
+    _ctx.emit('[$b]setpts=PTS-STARTPTS[$out]');
     // now the cur stream comes from caller; we return label + let caller xfade
     _pendingTailLabel = out;
     return _pendingTailLabel;
@@ -411,7 +435,7 @@ class GraphBuilder {
     // Build video over sub coords covering [subOffset, subOffset+durFrames)
     final vtracks = sub.videoTracks;
     String cur = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         'color=c=black@0:s=${width}x$height:r=${_c(fps)}:d=${_c(durFrames / fps)}[$cur]');
     for (var ti = vtracks.length - 1; ti >= 0; ti--) {
       final track = vtracks[ti];
@@ -424,7 +448,7 @@ class GraphBuilder {
         final stream = _emitClipVideo(sub, clip, subOffset, subOffset + durFrames, 0, speed);
         if (stream == null) continue;
         final out = _ctx.lab();
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[$cur][$stream]overlay=x=0:y=0:eof_action=pass[$out]');
         cur = out;
       }
@@ -435,7 +459,7 @@ class GraphBuilder {
   /// Emit title clip video: transparent canvas + drawtext chain.
   String _emitTitle(MediaAsset a, int durFrames) {
     var cur = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         'color=c=black@0:s=${width}x$height:r=${_c(fps)}:d=${_c(durFrames / fps)}[$cur]');
     final items = (a.title?['items'] as List?) ?? const [];
     for (final raw in items) {
@@ -449,7 +473,7 @@ class GraphBuilder {
         final h = ((it['h'] as num?)?.toDouble() ?? 0.1) * height;
         final color = it['color'] as String? ?? 'white';
         final out = _ctx.lab();
-        _ctx.filt.writeln(
+        _ctx.emit(
             '[$cur]drawbox=x=${x.round()}:y=${y.round()}:w=${w.round()}:h=${h.round()}:color=$color:t=fill[$out]');
         cur = out;
         continue;
@@ -461,7 +485,7 @@ class GraphBuilder {
       final color = it['color'] as String? ?? 'white';
       final box = it['box'] == true ? ':box=1:boxcolor=black@0.5:boxborderw=10' : '';
       final out = _ctx.lab();
-      _ctx.filt.writeln(
+      _ctx.emit(
           '[$cur]drawtext=text=\'$text\':fontsize=${size.round()}:fontcolor=$color:'
           'x=(w-text_w)*${_c(x)}:y=(h-text_h)*${_c(y)}$box[$out]');
       cur = out;
@@ -502,7 +526,7 @@ class GraphBuilder {
     for (var i = 0; i < bounds.length - 1; i++) {
       final s0 = bounds[i], s1 = bounds[i + 1];
       var seg = _ctx.lab();
-      _ctx.filt.writeln(
+      _ctx.emit(
           '[$input]trim=start_frame=$s0:end_frame=$s1,setpts=PTS-STARTPTS[$seg]');
       seg = _applyVideoEffectsStatic(
           seg, fxs, clip, localStart + s0, s1 - s0, speed,
@@ -510,7 +534,7 @@ class GraphBuilder {
       segLabels.add(seg);
     }
     final out = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '${segLabels.map((e) => '[$e]').join()}concat=n=${segLabels.length}:v=1:a=0[$out]');
     return out;
   }
@@ -539,7 +563,7 @@ class GraphBuilder {
       int localDur, int atFrame, double speed) {
     String chain(String filter, {String? label}) {
       final out = label ?? _ctx.lab();
-      _ctx.filt.writeln('[$input]$filter[$out]');
+      _ctx.emit('[$input]$filter[$out]');
       return out;
     }
 
@@ -558,10 +582,10 @@ class GraphBuilder {
               s, "rotate=a='$rot*PI/180':ow=rotw(iw):oh=roth(ih):fillcolor=black@0");
           // re-center on canvas with translate, per-frame overlay
           final canvas = _ctx.lab();
-          _ctx.filt.writeln(
+          _ctx.emit(
               'color=c=black@0:s=${width}x$height:r=${_c(fps)}:d=${_c(localDur / fps)}[$canvas]');
           final out = _ctx.lab();
-          _ctx.filt.writeln(
+          _ctx.emit(
               '[$canvas][$s]overlay=x=\'(main_w-overlay_w)/2+($x)*main_w\':'
               'y=\'(main_h-overlay_h)/2+($y)*main_h\':eval=frame[$out]');
           s = out;
@@ -598,8 +622,15 @@ class GraphBuilder {
         return chain(
             'eq=brightness=${_v(fx, 'brightness', atFrame, 0)}:contrast=${_v(fx, 'contrast', atFrame, 1)}:saturation=${_v(fx, 'saturation', atFrame, 1)}:gamma=${_v(fx, 'gamma', atFrame, 1)}:gamma_r=${_v(fx, 'gamma_r', atFrame, 1)}:gamma_g=${_v(fx, 'gamma_g', atFrame, 1)}:gamma_b=${_v(fx, 'gamma_b', atFrame, 1)}');
       case 'levels':
-        return chain(
-            'colorlevels=rimin=${_v(fx, 'rimin', atFrame, 0)}:gimin=${_v(fx, 'rimin', atFrame, 0)}:bimin=${_v(fx, 'rimin', atFrame, 0)}:rimax=${_v(fx, 'rimax', atFrame, 1)}:gimax=${_v(fx, 'rimax', atFrame, 1)}:bimax=${_v(fx, 'rimax', atFrame, 1)}:rigamma=${_v(fx, 'gammaval', atFrame, 1)}:gigamma=${_v(fx, 'gammaval', atFrame, 1)}:bigamma=${_v(fx, 'gammaval', atFrame, 1)}:romin=${_v(fx, 'romin', atFrame, 0)}:gomin=${_v(fx, 'romin', atFrame, 0)}:bomin=${_v(fx, 'romin', atFrame, 0)}:romax=${_v(fx, 'romax', atFrame, 1)}:gomax=${_v(fx, 'romax', atFrame, 1)}:bomax=${_v(fx, 'romax', atFrame, 1)}');
+        {
+          var s = chain(
+              'colorlevels=rimin=${_v(fx, 'rimin', atFrame, 0)}:gimin=${_v(fx, 'rimin', atFrame, 0)}:bimin=${_v(fx, 'rimin', atFrame, 0)}:rimax=${_v(fx, 'rimax', atFrame, 1)}:gimax=${_v(fx, 'rimax', atFrame, 1)}:bimax=${_v(fx, 'rimax', atFrame, 1)}:romin=${_v(fx, 'romin', atFrame, 0)}:gomin=${_v(fx, 'romin', atFrame, 0)}:bomin=${_v(fx, 'romin', atFrame, 0)}:romax=${_v(fx, 'romax', atFrame, 1)}:gomax=${_v(fx, 'romax', atFrame, 1)}:bomax=${_v(fx, 'romax', atFrame, 1)}');
+          // colorlevels has no gamma — approximate via eq
+          if (fx.numVal('gammaval', 1) != 1) {
+            s = _appendTo(s, 'eq=gamma=${_v(fx, 'gammaval', atFrame, 1)}');
+          }
+          return s;
+        }
       case 'colorbalance':
         return chain(
             'colorbalance=rs=${_v(fx, 'rs', atFrame, 0)}:gs=${_v(fx, 'gs', atFrame, 0)}:bs=${_v(fx, 'bs', atFrame, 0)}:rm=${_v(fx, 'rm', atFrame, 0)}:gm=${_v(fx, 'gm', atFrame, 0)}:bm=${_v(fx, 'bm', atFrame, 0)}:rh=${_v(fx, 'rh', atFrame, 0)}:gh=${_v(fx, 'gh', atFrame, 0)}:bh=${_v(fx, 'bh', atFrame, 0)}');
@@ -684,10 +715,10 @@ class GraphBuilder {
           }
           // blend sepia with original via mix filter
           var s = chain("split[a${fx.id}][b${fx.id}]");
-          _ctx.filt.writeln(
+          _ctx.emit(
               '[b${fx.id}]colorchannelmixer=$m[bp${fx.id}]');
           final out = _ctx.lab();
-          _ctx.filt.writeln(
+          _ctx.emit(
               '[a${fx.id}][bp${fx.id}]blend=all_mode=normal:all_opacity=$mix[$out]');
           return out;
         }
@@ -733,7 +764,7 @@ class GraphBuilder {
 
   String _appendTo(String input, String filter) {
     final out = _ctx.lab();
-    _ctx.filt.writeln('[$input]$filter[$out]');
+    _ctx.emit('[$input]$filter[$out]');
     return out;
   }
 
@@ -778,13 +809,15 @@ class GraphBuilder {
     final inSec = clip.offsetSec + (visStart - pos) / fps * speed;
     final durSec = (visEnd - visStart) / fps * speed;
 
+    if (_isOffline(a)) return null;
     final inp = _clipInput(a, inSec, durSec + 0.5);
+    if (inp.index < 0) return null;
     var s = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '[${inp.index}:a]aresample=${project.sampleRate},aformat=channel_layouts=stereo[$s]');
     if (speed != 1.0) {
       final o = _ctx.lab();
-      _ctx.filt.writeln('[$s]${_atempoChain(speed)}[$o]');
+      _ctx.emit('[$s]${_atempoChain(speed)}[$o]');
       s = o;
     }
     // audio effects
@@ -804,14 +837,14 @@ class GraphBuilder {
         f += 'pan=stereo|c0=${_c(min(1.0, 1 - p))}*c0|c1=${_c(min(1.0, 1 + p))}*c1';
       }
       if (f.endsWith(',')) f = f.substring(0, f.length - 1);
-      _ctx.filt.writeln('[$s]$f[$o]');
+      _ctx.emit('[$s]$f[$o]');
       s = o;
     }
     // position on timeline: delay then pad to full window length
     final relMs = ((visStart - winStart) / fps * 1000).round();
     final totalSec = (winEnd - winStart) / fps;
     final o = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '[$s]adelay=${relMs}ms:all=1,apad,atrim=0:${_c(totalSec)}[$o]');
     return o;
   }
@@ -835,7 +868,7 @@ class GraphBuilder {
     if (streams.isEmpty) return null;
     if (streams.length == 1) return streams.first;
     final out = _ctx.lab();
-    _ctx.filt.writeln(
+    _ctx.emit(
         '${streams.map((e) => '[$e]').join()}amix=inputs=${streams.length}:duration=longest:normalize=0[$out]');
     return out;
   }
@@ -859,7 +892,7 @@ class GraphBuilder {
   String _applyAudioEffect(String input, ClipEffect fx, Clip clip) {
     String chain(String f) {
       final out = _ctx.lab();
-      _ctx.filt.writeln('[$input]$f[$out]');
+      _ctx.emit('[$input]$f[$out]');
       return out;
     }
 

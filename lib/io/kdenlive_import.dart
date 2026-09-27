@@ -643,8 +643,9 @@ class KdenliveImport {
 
   static String _kdenliveColor(String s) {
     var v = s.replaceAll('#', '').replaceAll('0x', '');
+    // strip anything that isn't hex (MLT escapes ':' inside values)
+    v = v.replaceAll(RegExp('[^0-9a-fA-F]'), '');
     if (v.isEmpty) return '0x000000';
-    // kdenlive uses aarrggbb or rrggbb
     if (v.length == 8) v = v.substring(2);
     if (v.length > 6) v = v.substring(0, 6);
     return '0x$v';
