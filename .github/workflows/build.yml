@@ -85,8 +85,8 @@ jobs:
           sudo install -m 755 /tmp/cog/x86_64-unknown-linux-musl/cog /usr/local/bin/cog
       - name: Check commits
         run: |
-          # cog check needs a tag baseline when from_latest_tag is set;
-          # before the first release there are no tags, so allow that case.
+          # cog check needs the tag baseline fetched into the clone
+          git fetch --tags --force --quiet origin || true
           cog check || test -z "$(git tag -l 'v*')"
 
       - name: Analyze and test
