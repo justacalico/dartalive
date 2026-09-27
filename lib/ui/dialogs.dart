@@ -44,7 +44,6 @@ Future<String?> showColorPickerDialog(BuildContext context,
   return showDialog<String>(
     context: context,
     builder: (ctx) {
-      var hex = initial;
       final c = TextEditingController(text: initial.replaceAll('0x', ''));
       return AlertDialog(
         title: const Text('Pick color'),

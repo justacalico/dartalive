@@ -353,7 +353,6 @@ class KdenliveImport {
   // ------------------------------------------------------------------
   static ClipEffect? _importFilter(XmlElement f) {
     final kid = _prop(f, 'kdenlive_id') ?? _prop(f, 'mlt_service') ?? '';
-    final service = _prop(f, 'mlt_service') ?? '';
     if (_prop(f, 'internal_added') != null || _prop(f, 'disable') == '1') {
       return null;
     }

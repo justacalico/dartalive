@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:dartalive/models/model.dart';
 import 'package:dartalive/models/sequence_ops.dart';
-import 'package:dartalive/models/effects.dart';
 import 'package:dartalive/io/dal_file.dart';
 import 'package:dartalive/io/media_resolver.dart';
 import 'package:dartalive/io/kdenlive_import.dart';

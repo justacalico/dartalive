@@ -257,6 +257,19 @@ class _TimelinePanelState extends State<TimelinePanel> {
             },
             child: const Text('Fit', style: TextStyle(fontSize: 11))),
         const VerticalDivider(width: 10, color: AppTheme.border),
+        PopupMenuButton<double>(
+          tooltip: 'Track height',
+          onSelected: (v) => setState(() => _trackH = v),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 36, height: 26, child: Text('Small', style: TextStyle(fontSize: 11))),
+            PopupMenuItem(value: 52, height: 26, child: Text('Medium', style: TextStyle(fontSize: 11))),
+            PopupMenuItem(value: 72, height: 26, child: Text('Large', style: TextStyle(fontSize: 11))),
+          ],
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(Icons.height, size: 15, color: AppTheme.textDim),
+          ),
+        ),
         IconButton(
             icon: Icon(Icons.grid_on,
                 size: 15,
@@ -903,6 +916,7 @@ class _ClipWidgetState extends State<_ClipWidget> {
         const PopupMenuItem(value: 'speed', height: 28, child: Text('Speed…')),
         const PopupMenuItem(value: 'unlink', height: 28, child: Text('Unlink')),
         const PopupMenuItem(value: 'dup', height: 28, child: Text('Duplicate')),
+        const PopupMenuItem(value: 'rename', height: 28, child: Text('Rename…')),
         const PopupMenuItem(value: 'enable', height: 28, child: Text('Enable/disable')),
         const PopupMenuItem(value: 'del', height: 28, child: Text('Delete')),
         const PopupMenuItem(value: 'rdel', height: 28, child: Text('Ripple delete')),
@@ -926,6 +940,9 @@ class _ClipWidgetState extends State<_ClipWidget> {
           break;
         case 'speed':
           _speedDialog();
+          break;
+        case 'rename':
+          _renameClip();
           break;
         case 'unlink':
           s0.edit('Unlink', () => c.linkGroup = null);
@@ -953,6 +970,25 @@ class _ClipWidgetState extends State<_ClipWidget> {
           break;
       }
     });
+  }
+
+  void _renameClip() async {
+    final c0 = TextEditingController(text: c.name ?? widget.asset?.name ?? '');
+    final n = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+              title: const Text('Rename clip'),
+              content: TextField(controller: c0, autofocus: true),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, c0.text),
+                    child: const Text('OK')),
+              ],
+            ));
+    if (n != null) s.edit('Rename clip', () => c.name = n);
   }
 
   void _speedDialog() {

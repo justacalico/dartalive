@@ -516,8 +516,8 @@ class EditorState extends ChangeNotifier {
     playing = true;
     playRate = rate;
     frameServer.ensure(seq, playhead);
-    if (rate == 1.0 && audioServer != null && audioPlayer != null) {
-      final url = await audioServer!.start(seq, playhead);
+    if (rate == 1.0 && audioPlayer != null) {
+      final url = await audioServer.start(seq, playhead);
       if (url.isNotEmpty) {
         await audioPlayer!.open(Media(url), play: true);
       }

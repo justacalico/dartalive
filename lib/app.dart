@@ -4,7 +4,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'engine/ffmpeg.dart';
 import 'models/model.dart';
 import 'models/sequence_ops.dart';
 import 'state/editor_state.dart';

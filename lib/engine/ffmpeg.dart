@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 /// Binary discovery + ffprobe + thumbnail/waveform/proxy helpers.
 class FFmpeg {
