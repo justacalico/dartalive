@@ -484,10 +484,12 @@ class _EditorAppState extends State<EditorApp> {
         body: Column(children: [
           _menuBar(),
           Expanded(
-            child: DockAreaView(
-                layout: layout,
-                registry: _registry,
-                onChanged: _saveLayout),
+            child: s.fullscreenPreview
+                ? ProgramMonitor(state: s)
+                : DockAreaView(
+                    layout: layout,
+                    registry: _registry,
+                    onChanged: _saveLayout),
           ),
           _statusBar(),
         ]),
