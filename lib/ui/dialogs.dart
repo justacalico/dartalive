@@ -386,6 +386,12 @@ class _ExportDialogBodyState extends State<_ExportDialogBody> {
   StreamSubscription? _expSub;
 
   @override
+  void dispose() {
+    _expSub?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final s = widget.state;
     final seq = s.sequence;
