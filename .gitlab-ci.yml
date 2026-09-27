@@ -54,7 +54,7 @@ github-sync:
         if [ "$REMOTE_MAIN" != "$SHA" ]; then
           SINCE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         fi
-        git push github HEAD:main
+        git push github HEAD:refs/heads/main
         RUN_ID=$(bash scripts/watch-github-run.sh find --sha "$SHA" --event push --branch main ${SINCE:+--since "$SINCE"} || true)
         if [ -z "$RUN_ID" ]; then
           echo "No GitHub run found for pushed commit $SHA" >&2
