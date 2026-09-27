@@ -330,6 +330,7 @@ class _EffectStackPanelState extends State<EffectStackPanel> {
               value: cur.clamp(p.min, p.max),
               min: p.min,
               max: p.max,
+              onChangeStart: (_) => s.beginGesture('Set ${p.name}'),
               onChanged: (v) {
                 if (hasKeys) {
                   _setKeyAt(clip, fx, p, localFrame, v);
@@ -338,9 +339,9 @@ class _EffectStackPanelState extends State<EffectStackPanel> {
                   s.dirty = true;
                   s.frameServer.invalidate();
                 }
-                s.notifyListeners();
+                s.refresh();
               },
-              onChangeEnd: (_) => s.edit('Set ${p.name}', () {}),
+              onChangeEnd: (_) => s.endGesture(),
             ),
           ),
         ),

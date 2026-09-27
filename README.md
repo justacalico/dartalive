@@ -7,6 +7,8 @@ keyframes, FFmpeg-powered preview and export.
 Projects are saved as `.dal` files (ZIP archives). Media is referenced relative
 to the project file, so a project on removable media stays portable.
 
+![DartAlive](docs/screenshot.png)
+
 ## Features
 
 - Multi-track timeline with snapping, ripple edits, transitions and keyframes

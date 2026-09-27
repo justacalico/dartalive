@@ -16,6 +16,14 @@ on:
         description: 'Create a versioned release from this build'
         type: boolean
         default: false
+      merge_request_id:
+        description: 'Merge request ID (informational)'
+        type: string
+        default: ''
+      merge_request_url:
+        description: 'Merge request URL (informational)'
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -47,7 +55,7 @@ jobs:
           BUILD_NUMBER=$(date +%s | cut -c4-10)
           BUILD_ALL="${{ inputs.build_all || 'true' }}"
           if [ "$BUILD_ALL" = "true" ]; then
-            TARGETS='[{"target":"linux","os":"ubuntu-latest"},{"target":"linux-arm64","os":"ubuntu-24.04-arm","flutter":"git"},{"target":"windows","os":"windows-latest"},{"target":"windows-arm64","os":"windows-11-arm","flutter":"git"},{"target":"macos","os":"macos-latest","flutter_arch":"arm64"},{"target":"web","os":"ubuntu-latest"}]'
+            TARGETS='[{"target":"linux","os":"ubuntu-latest"},{"target":"linux-arm64","os":"ubuntu-24.04-arm","flutter":"git"},{"target":"windows","os":"windows-latest"},{"target":"macos","os":"macos-latest","flutter_arch":"arm64"},{"target":"web","os":"ubuntu-latest"}]'
           else
             TARGETS='[{"target":"linux","os":"ubuntu-latest"}]'
           fi
@@ -76,7 +84,11 @@ jobs:
           mkdir -p /tmp/cog && tar -xzf /tmp/cog.tar.gz -C /tmp/cog
           sudo install -m 755 /tmp/cog/x86_64-unknown-linux-musl/cog /usr/local/bin/cog
       - name: Check commits
-        run: cog check
+        run: |
+          # cog check needs a tag baseline when from_latest_tag is set;
+          # before the first release there are no tags, so allow that case.
+          cog check || test -z "$(git tag -l 'v*')"
+
       - name: Analyze and test
         run: |
           flutter config --no-analytics >/dev/null
@@ -121,7 +133,7 @@ jobs:
         if: startsWith(matrix.target, 'linux')
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev zip dpkg-dev rpm curl
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev zip dpkg-dev rpm curl libmpv-dev mpv
 
       - name: Build Linux
         if: matrix.target == 'linux' || matrix.target == 'linux-arm64'
@@ -131,7 +143,7 @@ jobs:
           flutter build linux --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
           SUFFIX=""
           [ "${{ matrix.target }}" = "linux-arm64" ] && SUFFIX="-arm64"
-          OUT="artifacts"; mkdir -p "$OUT"
+          OUT="$GITHUB_WORKSPACE/artifacts"; mkdir -p "$OUT"
           BUNDLE="build/linux/$( [ "${{ matrix.target }}" = "linux-arm64" ] && echo arm64 || echo x64)/release/bundle"
           tar -czf "$OUT/dartalive-linux$SUFFIX.tar.gz" -C "$BUNDLE" .
           (cd "$BUNDLE" && zip -qr "$OUT/dartalive-linux$SUFFIX.zip" .)

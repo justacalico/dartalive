@@ -50,7 +50,7 @@ class SeqOps {
         if (frame <= c.position || frame >= c.end) continue;
         final leftLen = frame - c.position;
         final rightLen = c.end - frame;
-        final right = c.clone('${c.id}_r${frame}');
+        final right = c.clone('${c.id}_r$frame');
         right.position = frame;
         right.duration = rightLen;
         right.offsetSec = c.offsetSec + (leftLen / fps) * c.speed;

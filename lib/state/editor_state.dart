@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -29,6 +28,8 @@ class _UndoStep {
 }
 
 class EditorState extends ChangeNotifier {
+  /// UI code calls this after mutating state directly (sliders etc).
+  void refresh() => notifyListeners();
   Settings settings;
 
   Project project = Project(name: 'Untitled');
@@ -164,6 +165,7 @@ class EditorState extends ChangeNotifier {
       _rebuildServers();
       _precacheMedia();
       notifyListeners();
+      _showFrame(0);
     } catch (e) {
       statusMessage = 'Open failed: $e';
       notifyListeners();
@@ -516,8 +518,8 @@ class EditorState extends ChangeNotifier {
     playing = true;
     playRate = rate;
     frameServer.ensure(seq, playhead);
-    if (rate == 1.0 && audioServer != null && audioPlayer != null) {
-      final url = await audioServer!.start(seq, playhead);
+    if (rate == 1.0 && audioPlayer != null) {
+      final url = await audioServer.start(seq, playhead);
       if (url.isNotEmpty) {
         await audioPlayer!.open(Media(url), play: true);
       }
@@ -582,6 +584,11 @@ class EditorState extends ChangeNotifier {
     fs.ensure(seq, frame);
     final jpg = fs.cached(frame);
     if (jpg != null) _decodeToImage(frame, jpg);
+    // pre-decode the next few frames so playback doesn't hitch on decode
+    for (var i = 1; i <= 4; i++) {
+      final j = fs.cached(frame + i);
+      if (j != null) _decodeToImage(frame + i, j);
+    }
     displayedFrame = frame;
   }
 

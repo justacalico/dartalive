@@ -173,7 +173,7 @@ class _BinPanelState extends State<BinPanel> {
       child: GestureDetector(
         onTap: () {
           s.selectedAssetId = a.id;
-          s.notifyListeners();
+          s.refresh();
         },
         onDoubleTap: () {
           if (a.type == AssetType.sequence) {
@@ -288,7 +288,7 @@ class _BinPanelState extends State<BinPanel> {
           } else {
             s.status('Proxy failed: ${a.name}');
           }
-          s.notifyListeners();
+          s.refresh();
           break;
         case 'transcode':
           final src = s.project.resolvedPaths[a.id];
@@ -303,11 +303,12 @@ class _BinPanelState extends State<BinPanel> {
           }
           break;
         case 'rename':
+          if (!mounted) break;
           final n = await promptText(context, 'Rename', 'Name',
               initial: a.name);
           if (n != null) {
             a.name = n;
-            s.notifyListeners();
+            s.refresh();
           }
           break;
         case 'relink':
@@ -318,7 +319,7 @@ class _BinPanelState extends State<BinPanel> {
             a.fileName = p.split('/').last;
             s.project.resolvedPaths[a.id] = p;
             s.offlineAssets.remove(a.id);
-            s.notifyListeners();
+            s.refresh();
           }
           break;
         case 'remove':

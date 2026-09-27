@@ -9,11 +9,11 @@ import '../models/model.dart';
 ///
 /// Structure: chains/producers are bin+timeline producers, tractors with
 /// sequenceproperties are sequences, each timeline track is a tractor with
-/// two playlists (front/back for mixes). Clip effects are <filter> children
-/// of <entry> elements.
+/// two playlists (front/back for mixes). Clip effects are `filter` children
+/// of `entry` elements.
 class KdenliveImport {
   static double _fps = 30;
-  static int _W = 1920, _H = 1080;
+  static int _w = 1920, _h = 1080;
   static String _root = '';
 
   static Future<Project> run(String path) async {
@@ -27,15 +27,15 @@ class KdenliveImport {
 
     final prof = mlt.findElements('profile').firstOrNull;
     if (prof != null) {
-      _W = int.parse(prof.getAttribute('width') ?? '1920');
-      _H = int.parse(prof.getAttribute('height') ?? '1080');
+      _w = int.parse(prof.getAttribute('width') ?? '1920');
+      _h = int.parse(prof.getAttribute('height') ?? '1080');
       _fps = (int.parse(prof.getAttribute('frame_rate_num') ?? '30')) /
           (int.parse(prof.getAttribute('frame_rate_den') ?? '1'));
     }
 
     final project = Project(name: _basename(path).replaceAll('.kdenlive', ''),
-        width: _W,
-        height: _H,
+        width: _w,
+        height: _h,
         fps: Rational(_fps.round(), 1),
         sampleRate: 48000);
 
@@ -353,7 +353,6 @@ class KdenliveImport {
   // ------------------------------------------------------------------
   static ClipEffect? _importFilter(XmlElement f) {
     final kid = _prop(f, 'kdenlive_id') ?? _prop(f, 'mlt_service') ?? '';
-    final service = _prop(f, 'mlt_service') ?? '';
     if (_prop(f, 'internal_added') != null || _prop(f, 'disable') == '1') {
       return null;
     }
@@ -481,8 +480,8 @@ class KdenliveImport {
         final parts = geom.split(RegExp(r'[ ,]')).where((x) => x.isNotEmpty);
         final gp = parts.map((e) => double.tryParse(e) ?? 0).toList();
         if (gp.length >= 4) {
-          e.values['x'] = gp[0] / _W + (gp[2] / _W) / 2;
-          e.values['y'] = gp[1] / _H + (gp[3] / _H) / 2;
+          e.values['x'] = gp[0] / _w + (gp[2] / _w) / 2;
+          e.values['y'] = gp[1] / _h + (gp[3] / _h) / 2;
         }
         return e;
       case 'qtblend':
@@ -492,10 +491,10 @@ class KdenliveImport {
           final parts = rect.split(RegExp(r'[ ,]')).where((x) => x.isNotEmpty);
           final rp = parts.map((e) => double.tryParse(e) ?? 0).toList();
           if (rp.length >= 4) {
-            e.values['x'] = (rp[0] + rp[2] / 2 - _W / 2) / _W;
-            e.values['y'] = (rp[1] + rp[3] / 2 - _H / 2) / _H;
-            e.values['sx'] = rp[2] / _W;
-            e.values['sy'] = rp[3] / _H;
+            e.values['x'] = (rp[0] + rp[2] / 2 - _w / 2) / _w;
+            e.values['y'] = (rp[1] + rp[3] / 2 - _h / 2) / _h;
+            e.values['sx'] = rp[2] / _w;
+            e.values['sy'] = rp[3] / _h;
           }
           e.values['rot'] = prop('rotation');
           e.values['op'] = _prop(f, 'compositing') == '1' ? 1.0 : prop('opacity', 1);
@@ -583,9 +582,9 @@ class KdenliveImport {
           items.add({
             'type': 'text',
             'text': content?.innerText ?? '',
-            'x': (x / _W).clamp(0.0, 1.0),
-            'y': (y / _H).clamp(0.0, 1.0),
-            'size': (fontSize / _H).clamp(0.01, 0.5),
+            'x': (x / _w).clamp(0.0, 1.0),
+            'y': (y / _h).clamp(0.0, 1.0),
+            'size': (fontSize / _h).clamp(0.01, 0.5),
             'color': _kdenliveColor(
                 content?.getAttribute('color') ??
                     content?.getAttribute('font-color') ??
@@ -595,10 +594,10 @@ class KdenliveImport {
           final pos = item.findElements('position').firstOrNull;
           items.add({
             'type': 'rect',
-            'x': (double.tryParse(pos?.getAttribute('x') ?? '') ?? 0) / _W,
-            'y': (double.tryParse(pos?.getAttribute('y') ?? '') ?? 0) / _H,
-            'w': (double.tryParse(pos?.getAttribute('w') ?? '') ?? 200) / _W,
-            'h': (double.tryParse(pos?.getAttribute('h') ?? '') ?? 40) / _H,
+            'x': (double.tryParse(pos?.getAttribute('x') ?? '') ?? 0) / _w,
+            'y': (double.tryParse(pos?.getAttribute('y') ?? '') ?? 0) / _h,
+            'w': (double.tryParse(pos?.getAttribute('w') ?? '') ?? 200) / _w,
+            'h': (double.tryParse(pos?.getAttribute('h') ?? '') ?? 40) / _h,
             'color': 'white',
           });
         }

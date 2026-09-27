@@ -1,7 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:typed_data';
 
 import '../engine/exporter.dart';
 import '../io/kdenlive_import.dart';
@@ -44,7 +43,6 @@ Future<String?> showColorPickerDialog(BuildContext context,
   return showDialog<String>(
     context: context,
     builder: (ctx) {
-      var hex = initial;
       final c = TextEditingController(text: initial.replaceAll('0x', ''));
       return AlertDialog(
         title: const Text('Pick color'),

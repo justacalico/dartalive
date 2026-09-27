@@ -25,7 +25,6 @@ class DalFile {
         .convert(project.toJson()));
     arch.addFile(ArchiveFile('project.json', data.length, data));
     final zip = ZipEncoder().encode(arch);
-    if (zip == null) throw StateError('zip encode failed');
     // atomic-ish write: temp file then rename
     final tmp = File('$path.tmp');
     await tmp.writeAsBytes(zip, flush: true);

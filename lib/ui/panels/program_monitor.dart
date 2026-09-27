@@ -23,7 +23,7 @@ class _ProgramMonitorState extends State<ProgramMonitor> {
           color: Colors.black,
           child: ValueListenableBuilder(
             valueListenable: s.frameImage,
-            builder: (_, img, __) {
+            builder: (_, img, child) {
               return Stack(fit: StackFit.expand, children: [
                 if (img != null)
                   RawImage(
@@ -90,11 +90,11 @@ class _ProgramMonitorState extends State<ProgramMonitor> {
         const VerticalDivider(width: 14, color: AppTheme.border),
         _t(Icons.first_page_outlined, () {
           s.inPoint = s.playhead;
-          s.notifyListeners();
+          s.refresh();
         }, 'Set in (I)'),
         _t(Icons.last_page_outlined, () {
           s.outPoint = s.playhead;
-          s.notifyListeners();
+          s.refresh();
         }, 'Set out (O)'),
         const Spacer(),
         _previewScaleMenu(s),
