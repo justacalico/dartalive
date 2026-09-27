@@ -8,6 +8,7 @@ import 'landing.dart';
 import 'state/editor_state.dart';
 import 'state/settings.dart';
 import 'theme.dart';
+import 'io/kdenlive_import.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,7 @@ void main() async {
     try {
       await windowManager.ensureInitialized();
       const opts = WindowOptions(
+          size: Size(1600, 920),
           minimumSize: Size(960, 540),
           title: 'DartAlive',
           backgroundColor: AppTheme.bg);
@@ -26,9 +28,20 @@ void main() async {
     } catch (_) {}
   }
   final settings = Settings.load();
-  runApp(kIsWeb
-      ? LandingApp()
-      : EditorAppRoot(state: EditorState(settings)));
+  final state = EditorState(settings);
+  runApp(kIsWeb ? LandingApp() : EditorAppRoot(state: state));
+  // --open=/path/project.dal
+  if (!kIsWeb) {
+    for (final a in const String.fromEnvironment('OPEN', defaultValue: '')
+        .split(',')
+        .where((e) => e.isNotEmpty)) {
+      if (a.endsWith('.kdenlive')) {
+        KdenliveImport.run(a).then((p) => state.loadImportedProject(p, a));
+      } else {
+        state.openProject(a);
+      }
+    }
+  }
 }
 
 class EditorAppRoot extends StatelessWidget {

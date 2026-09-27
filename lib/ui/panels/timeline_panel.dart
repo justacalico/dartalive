@@ -4,6 +4,7 @@ import 'dart:ui' as ui show Clip;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/effects.dart';
 import '../../models/model.dart';
 import '../../models/sequence_ops.dart';
 import '../../state/editor_state.dart';
@@ -547,7 +548,21 @@ class _TimelinePanelState extends State<TimelinePanel> {
       top: top + 1,
       width: w,
       height: _trackH - 2,
-      child: _ClipWidget(
+      child: DragTarget<String>(
+        onAcceptWithDetails: (d) {
+          if (d.data.startsWith('effect:')) {
+            final fid = d.data.substring(7);
+            final def = Effects.byId(fid);
+            if (def == null) return;
+            s.edit('Add effect', () {
+              c.effects.add(ClipEffect(
+                  id: newId(),
+                  effectId: fid,
+                  values: def.defaults()));
+            });
+          }
+        },
+        builder: (_, cand, __) => _ClipWidget(
         clip: c,
         track: track,
         seq: seq,
@@ -558,9 +573,11 @@ class _TimelinePanelState extends State<TimelinePanel> {
         selected: sel,
         offline: offline,
         isVideo: isV,
-      ),
+        isEffectHover: cand.isNotEmpty,
+      )),
     );
   }
+
 }
 
 // ----------------------------------------------------------------------
@@ -576,6 +593,7 @@ class _ClipWidget extends StatefulWidget {
   final bool selected;
   final bool offline;
   final bool isVideo;
+  final bool isEffectHover;
 
   const _ClipWidget({
     required this.clip,
@@ -588,6 +606,7 @@ class _ClipWidget extends StatefulWidget {
     required this.selected,
     required this.offline,
     required this.isVideo,
+    this.isEffectHover = false,
   });
 
   @override
@@ -596,9 +615,7 @@ class _ClipWidget extends StatefulWidget {
 
 class _ClipWidgetState extends State<_ClipWidget> {
   _DragMode? _mode;
-  int _startPos = 0;
-  int _startDur = 0;
-  double _startOff = 0;
+  double _dragDy = 0;
 
   EditorState get s => widget.state;
   Clip get c => widget.clip;
@@ -624,7 +641,12 @@ class _ClipWidgetState extends State<_ClipWidget> {
           color: color.withValues(alpha: c.enabled ? 0.55 : 0.25),
           borderRadius: BorderRadius.circular(2),
           border: Border.all(
-              color: widget.selected ? AppTheme.accent : color, width: 1),
+              color: widget.isEffectHover
+                  ? AppTheme.accent
+                  : widget.selected
+                      ? AppTheme.accent
+                      : color,
+              width: widget.isEffectHover ? 2 : 1),
         ),
         clipBehavior: ui.Clip.hardEdge,
         child: Stack(children: [
@@ -659,9 +681,6 @@ class _ClipWidgetState extends State<_ClipWidget> {
           behavior: HitTestBehavior.translucent,
           onHorizontalDragStart: (_) {
             _mode = left ? _DragMode.trimL : _DragMode.trimR;
-            _startPos = c.position;
-            _startDur = c.duration;
-            _startOff = c.offsetSec;
             s.beginGesture('Trim clip');
           },
           onHorizontalDragUpdate: (d) {
@@ -785,16 +804,16 @@ class _ClipWidgetState extends State<_ClipWidget> {
       'slide' => _DragMode.slide,
       _ => _DragMode.move,
     };
-    _startPos = c.position;
-    _startDur = c.duration;
-    _startOff = c.offsetSec;
+    _dragDy = 0;
     if (_mode == _DragMode.move) s.beginGesture('Move clip');
     if (_mode == _DragMode.slip) s.beginGesture('Slip clip');
     if (_mode == _DragMode.slide) s.beginGesture('Slide clip');
   }
 
   void _panUpdate(DragUpdateDetails d) {
+    _dragDy += d.delta.dy;
     final df = (d.delta.dx / widget.ppf).round();
+    if (_mode == _DragMode.move) _moveTracks();
     if (df == 0 || _mode == null) return;
     switch (_mode!) {
       case _DragMode.move:
@@ -838,6 +857,27 @@ class _ClipWidgetState extends State<_ClipWidget> {
       case _DragMode.trimR:
         break;
     }
+  }
+
+  /// Drag vertically across tracks: move the clip (and linked partners)
+  /// to the track under the pointer if the kind matches.
+  void _moveTracks() {
+    const th = 52.0; // matches _trackH in parent
+    final tracks = widget.seq.tracks;
+    final curIdx = tracks.indexOf(widget.track);
+    final deltaTracks = (_dragDy / th).round();
+    if (deltaTracks == 0) return;
+    final targetIdx = (curIdx + deltaTracks).clamp(0, tracks.length - 1);
+    final target = tracks[targetIdx];
+    if (target.id == widget.track.id || target.locked) return;
+    if (target.kind != widget.track.kind) return;
+    if (SeqOps.collides(target, c.position, c.duration, ignoreId: c.id)) {
+      return;
+    }
+    widget.track.clips.remove(c);
+    target.clips.add(c);
+    _dragDy -= deltaTracks * th;
+    s.duringGesture();
   }
 
   void _moveLinked(int delta) {
