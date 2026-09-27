@@ -102,6 +102,11 @@ class DockLayout {
       for (final g in a) {
         g.panels.remove(id);
       }
+      for (final g in a) {
+        if (g.panels.isNotEmpty) {
+          g.active = g.active.clamp(0, g.panels.length - 1);
+        }
+      }
       a.removeWhere((g) => g.panels.isEmpty);
     }
   }
@@ -190,14 +195,25 @@ class _DockAreaViewState extends State<DockAreaView> {
       return _dropZone('center', -1,
           child: Container(color: AppTheme.panel));
     }
-    return _tabGroup('center', groups.first, 0);
+    return Column(children: [
+      for (var i = 0; i < groups.length; i++)
+        Expanded(
+            flex: (groups[i].flex * 100).round(),
+            child: _groupWithDrops('center', groups[i], i)),
+    ]);
   }
 
   Widget _bottomArea() {
     final groups = widget.layout.areas['bottom']!;
-    return groups.isEmpty
-        ? _dropZone('bottom', -1, child: Container(color: AppTheme.panel))
-        : _tabGroup('bottom', groups.first, 0);
+    if (groups.isEmpty) {
+      return _dropZone('bottom', -1, child: Container(color: AppTheme.panel));
+    }
+    return Row(children: [
+      for (var i = 0; i < groups.length; i++)
+        Expanded(
+            flex: (groups[i].flex * 100).round(),
+            child: _groupWithDrops('bottom', groups[i], i)),
+    ]);
   }
 
   Widget _areaColumn(String area) {
@@ -355,6 +371,7 @@ class _DockAreaViewState extends State<DockAreaView> {
       {required Widget child, bool passive = false}) {
     return DragTarget<String>(
       onWillAcceptWithDetails: (d) {
+        if (!widget.registry.containsKey(d.data)) return false;
         setState(() => _hover = _DropTarget(area, index));
         return true;
       },
@@ -371,11 +388,17 @@ class _DockAreaViewState extends State<DockAreaView> {
         } else if (index >= 0) {
           widget.layout.dock(panel, area, index);
         } else if (index <= -100) {
+          // split below group gi
           final gi = -100 - index;
-          widget.layout.dock(panel, area, gi + 1 < widget.layout.areas[area]!.length ? gi + 1 : -2, below: true);
+          widget.layout.removePanel(panel);
+          final list = widget.layout.areas[area]!;
+          list.insert((gi + 1).clamp(0, list.length).toInt(), PanelGroup([panel]));
         } else if (index <= -3) {
+          // split above group gi
           final gi = -3 - index;
-          widget.layout.dock(panel, area, gi);
+          widget.layout.removePanel(panel);
+          final list = widget.layout.areas[area]!;
+          list.insert(gi.clamp(0, list.length).toInt(), PanelGroup([panel]));
         } else {
           widget.layout.dock(panel, area, -1);
         }

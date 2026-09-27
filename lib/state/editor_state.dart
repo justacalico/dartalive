@@ -87,7 +87,7 @@ class EditorState extends ChangeNotifier {
     _initServers();
     _newProject();
     _autosave =
-        Timer.periodic(Duration(seconds: settings.autosaveSec), (_) => _autoSave());
+        Timer.periodic(Duration(seconds: max(5, settings.autosaveSec)), (_) => _autoSave());
   }
 
   Sequence? get sequence => project.sequenceById(activeSequenceId);
@@ -169,7 +169,6 @@ class EditorState extends ChangeNotifier {
     } catch (e) {
       statusMessage = 'Open failed: $e';
       notifyListeners();
-      rethrow;
     }
   }
 
@@ -212,8 +211,11 @@ class EditorState extends ChangeNotifier {
     if (target == null) return;
     await DalFile.write(target, project);
     projectPath = target;
-    projectDir = File(target).parent.path;
-    resolver ??= MediaResolver(projectDir);
+    final dir = File(target).parent.path;
+    if (resolver == null || resolver!.projectDir != dir) {
+      resolver = MediaResolver(dir);
+    }
+    projectDir = dir;
     dirty = false;
     statusMessage = 'Saved $target';
     notifyListeners();
@@ -253,6 +255,10 @@ class EditorState extends ChangeNotifier {
     audioPlayer = Player();
     frameImage.value = null;
     displayedFrame = null;
+    _imageCache.clear();
+    _imageLru.clear();
+    _decoding.clear();
+    _stripCache.clear();
   }
 
   // ------------------------------------------------------------------
@@ -309,7 +315,21 @@ class EditorState extends ChangeNotifier {
     project = Project.fromJson(jsonDecode(json) as Map<String, dynamic>);
     project.resolvedPaths = rp;
     selectedClips.removeWhere((id) => !_clipExists(id));
-
+    // re-validate everything the old project snapshot may invalidate
+    if (project.sequenceById(activeSequenceId) == null) {
+      activeSequenceId = project.sequences.isNotEmpty
+          ? project.sequences.first.id
+          : '';
+    }
+    final d = sequence?.duration ?? 0;
+    playhead = playhead.clamp(0, max(0, d - 1));
+    inPoint = inPoint?.clamp(0, d);
+    outPoint = outPoint?.clamp(0, d);
+    _imageCache.clear();
+    _imageLru.clear();
+    _decoding.clear();
+    frameImage.value = null;
+    frameServer.invalidate();
     dirty = true;
     notifyListeners();
   }
@@ -428,7 +448,7 @@ class EditorState extends ChangeNotifier {
     stopPlayback();
     activeSequenceId = id;
     playhead = 0;
-    frameServer.invalidate(hard: true);
+    frameServer.invalidate();
     notifyListeners();
   }
 
@@ -477,14 +497,13 @@ class EditorState extends ChangeNotifier {
     final m = _stripCache.putIfAbsent(a.id, () => {});
     if (m.containsKey(index)) return;
     m[index] = Uint8List(0); // placeholder while loading
-    final pos = a.durationSec * (index + 0.5) / 6.0;
+    final pos = a.durationSec * (index + 0.5) / 12.0;
     FFmpeg.thumbnail(path, pos, 160).then((t) {
       if (t != null) {
         m[index] = Uint8List.fromList(t);
         notifyListeners();
-      } else {
-        m.remove(index);
       }
+      // failure leaves the empty placeholder so we don't respawn ffmpeg
     });
   }
 
@@ -594,7 +613,9 @@ class EditorState extends ChangeNotifier {
 
   void _decodeToImage(int frame, Uint8List jpg) async {
     if (_imageCache.containsKey(frame)) {
-      frameImage.value = _imageCache[frame];
+      if (frame == displayedFrame || frame == playhead) {
+        frameImage.value = _imageCache[frame];
+      }
       return;
     }
     if (_decoding.contains(frame)) return;
@@ -604,8 +625,9 @@ class EditorState extends ChangeNotifier {
       final fi = await codec.getNextFrame();
       _imageCache[frame] = fi.image;
       _imageLru.add(frame);
-      if (_imageLru.length > 300) {
+      while (_imageLru.length > 300) {
         final old = _imageLru.removeAt(0);
+        if (_imageCache[old] == frameImage.value) continue; // on screen
         _imageCache.remove(old)?.dispose();
       }
       if (displayedFrame == frame || frame == playhead) {

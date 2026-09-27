@@ -18,6 +18,7 @@ class EffectStackPanel extends StatefulWidget {
 }
 
 class _EffectStackPanelState extends State<EffectStackPanel> {
+  bool _textEditing = false;
   final Set<String> _expanded = {};
 
   @override
@@ -285,11 +286,17 @@ class _EffectStackPanelState extends State<EffectStackPanel> {
                   decoration:
                       const InputDecoration(hintText: '0/0 0.5/0.6 1/1'),
                   onChanged: (v) {
+                    if (!_textEditing) {
+                      _textEditing = true;
+                      s.beginGesture('Set ${p.name}');
+                    }
                     fx.values[p.id] = v;
                     s.dirty = true;
                   },
-                  onFieldSubmitted: (v) =>
-                      s.edit('Set ${p.name}', () => fx.values[p.id] = v),
+                  onFieldSubmitted: (_) {
+                    _textEditing = false;
+                    s.endGesture();
+                  },
                 ),
               ),
             ),

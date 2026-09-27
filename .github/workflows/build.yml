@@ -85,9 +85,11 @@ jobs:
           sudo install -m 755 /tmp/cog/x86_64-unknown-linux-musl/cog /usr/local/bin/cog
       - name: Check commits
         run: |
-          # cog check needs a tag baseline when from_latest_tag is set;
-          # before the first release there are no tags, so allow that case.
-          cog check || test -z "$(git tag -l 'v*')"
+          # cog check only works when a v* tag is an ancestor of HEAD —
+          # skip silently when the branch predates every release tag
+          if git describe --tags --match 'v*' --abbrev=0 >/dev/null 2>&1; then
+            cog check
+          fi
 
       - name: Analyze and test
         run: |
@@ -160,9 +162,9 @@ jobs:
           flutter build windows --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
           SUFFIX="x86_64"
           [ "${{ matrix.target }}" = "windows-arm64" ] && SUFFIX="arm64"
-          mkdir -p artifacts
+          OUT="$GITHUB_WORKSPACE/artifacts"; mkdir -p "$OUT"
           cd build/windows/*/runner/Release
-          7z a "../../../../artifacts/dartalive-windows-$SUFFIX.zip" .
+          7z a "$OUT/dartalive-windows-$SUFFIX.zip" .
 
       - name: Build macOS
         if: matrix.target == 'macos'
@@ -233,7 +235,7 @@ jobs:
 
   gitlab-sync:
     name: Sync release back to GitLab
-    if: needs.release.result == 'success' || needs.nightly.result == 'success'
+    if: always() && (needs.release.result == 'success' || needs.nightly.result == 'success')
     needs: [release, nightly]
     runs-on: ubuntu-latest
     steps:

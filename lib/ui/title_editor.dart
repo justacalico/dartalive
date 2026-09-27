@@ -124,7 +124,7 @@ class _TitleEditorDialogState extends State<TitleEditorDialog> {
       trailing: GestureDetector(
         onTap: () => setState(() {
           items.removeAt(i);
-          _sel = _sel.clamp(0, items.length - 1);
+          _sel = items.isEmpty ? 0 : _sel.clamp(0, items.length - 1);
         }),
         child: const Icon(Icons.close, size: 13),
       ),

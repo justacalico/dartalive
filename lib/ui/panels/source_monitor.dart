@@ -54,9 +54,17 @@ class _SourceMonitorState extends State<SourceMonitor> {
     final id = widget.assetId ?? s.selectedAssetId;
     if (id == null || id == _loaded) return;
     final a = s.project.assetById(id);
-    if (a == null || a.relPath == null) return;
+    if (a == null || a.relPath == null || !(a.hasVideo || a.hasAudio)) {
+      _loaded = id;
+      _player?.stop();
+      return;
+    }
     final path = s.project.resolvedPaths[a.id];
-    if (path == null) return;
+    if (path == null) {
+      _loaded = id;
+      _player?.stop();
+      return;
+    }
     _loaded = id;
     _in = null;
     _out = null;

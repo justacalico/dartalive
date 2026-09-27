@@ -15,7 +15,7 @@ class DalFile {
     final f = arch.findFile('project.json');
     if (f == null) throw const FormatException('project.json missing');
     final json =
-        jsonDecode(utf8.decode(f.content as List<int>)) as Map<String, dynamic>;
+        jsonDecode(utf8.decode(f.readBytes() ?? f.content as List<int>)) as Map<String, dynamic>;
     return Project.fromJson(json);
   }
 
