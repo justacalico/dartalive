@@ -76,7 +76,9 @@ jobs:
           mkdir -p /tmp/cog && tar -xzf /tmp/cog.tar.gz -C /tmp/cog
           sudo install -m 755 /tmp/cog/x86_64-unknown-linux-musl/cog /usr/local/bin/cog
       - name: Check commits
-        run: cog check
+        # `cog check` needs a tag baseline when from_latest_tag is set;
+        # before the first release there are no tags, so allow that case.
+        run: cog check || test -z "$(git tag -l 'v*')
       - name: Analyze and test
         run: |
           flutter config --no-analytics >/dev/null
