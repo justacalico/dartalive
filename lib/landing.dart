@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Web build = landing page only. The editor itself is desktop.
 /// Design language matches the app: near-black panels, hairline rules,
@@ -173,13 +174,29 @@ class LandingPage extends StatelessWidget {
   }
 
   Widget _footer() {
-    return const Row(children: [
-      Text('DartAlive — AGPL-3.0',
+    return Row(children: [
+      const Text('DartAlive — AGPL-3.0',
           style: TextStyle(fontSize: 11, color: LandingApp.dim)),
-      Spacer(),
-      Text('Built with Flutter + FFmpeg',
+      const Spacer(),
+      _link('Source', 'https://gitlab.com/HttpAnimations/dartalive'),
+      const SizedBox(width: 14),
+      _link('Releases',
+          'https://gitlab.com/HttpAnimations/dartalive/-/releases'),
+      const SizedBox(width: 14),
+      const Text('Built with Flutter + FFmpeg',
           style: TextStyle(fontSize: 11, color: LandingApp.dim)),
     ]);
+  }
+
+  Widget _link(String label, String url) {
+    return InkWell(
+      onTap: () => launchUrl(Uri.parse(url)),
+      child: Text(label,
+          style: const TextStyle(
+              fontSize: 11,
+              color: LandingApp.accent,
+              decoration: TextDecoration.underline)),
+    );
   }
 }
 
