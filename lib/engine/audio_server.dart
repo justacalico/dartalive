@@ -88,7 +88,7 @@ class AudioServer {
     _proc!.stdout.listen((c) => _buffer.add(c),
         onDone: () => _done = true, onError: (_) => _done = true);
     _proc!.stderr.drain<void>();
-    _currentUrl = 'http://127.0.0.1:$_port/a${_gen}.wav';
+    _currentUrl = 'http://127.0.0.1:$_port/a$_gen.wav';
     return _currentUrl!;
   }
 

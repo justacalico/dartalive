@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -29,6 +28,8 @@ class _UndoStep {
 }
 
 class EditorState extends ChangeNotifier {
+  /// UI code calls this after mutating state directly (sliders etc).
+  void refresh() => notifyListeners();
   Settings settings;
 
   Project project = Project(name: 'Untitled');

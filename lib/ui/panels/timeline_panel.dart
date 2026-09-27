@@ -230,7 +230,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
             visualDensity: VisualDensity.compact,
             onPressed: () {
               s.timelineZoom = (s.timelineZoom / 1.3).clamp(0.5, 400);
-              s.notifyListeners();
+              s.refresh();
             }),
         Expanded(
           child: Slider(
@@ -239,7 +239,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
             max: 400,
             onChanged: (v) {
               s.timelineZoom = v;
-              s.notifyListeners();
+              s.refresh();
             },
           ),
         ),
@@ -248,12 +248,12 @@ class _TimelinePanelState extends State<TimelinePanel> {
             visualDensity: VisualDensity.compact,
             onPressed: () {
               s.timelineZoom = (s.timelineZoom * 1.3).clamp(0.5, 400);
-              s.notifyListeners();
+              s.refresh();
             }),
         TextButton(
             onPressed: () {
               s.timelineZoom = -1;
-              s.notifyListeners();
+              s.refresh();
             },
             child: const Text('Fit', style: TextStyle(fontSize: 11))),
         const VerticalDivider(width: 10, color: AppTheme.border),
@@ -279,7 +279,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
             visualDensity: VisualDensity.compact,
             onPressed: () {
               s.settings.snapping = !s.settings.snapping;
-              s.notifyListeners();
+              s.refresh();
             }),
       ]),
     );
@@ -295,7 +295,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         visualDensity: VisualDensity.compact,
         onPressed: () {
           s.tool = tool;
-          s.notifyListeners();
+          s.refresh();
         },
       ),
     );
@@ -575,7 +575,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
             });
           }
         },
-        builder: (_, cand, __) => GestureDetector(
+        builder: (_, cand, child) => GestureDetector(
         onDoubleTap: () {
           if (a != null &&
               a.type == AssetType.sequence &&

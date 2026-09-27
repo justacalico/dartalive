@@ -135,16 +135,16 @@ class _EditorAppState extends State<EditorApp> {
         break;
       case Commands.setIn:
         s.inPoint = s.playhead;
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.setOut:
         s.outPoint = s.playhead;
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.clearInOut:
         s.inPoint = null;
         s.outPoint = null;
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.markClip:
         if (seq == null) break;
@@ -155,7 +155,7 @@ class _EditorAppState extends State<EditorApp> {
             s.outPoint = c.end;
           }
         }
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.addMarker:
         if (seq == null) break;
@@ -219,42 +219,42 @@ class _EditorAppState extends State<EditorApp> {
         break;
       case Commands.zoomIn:
         s.timelineZoom = (s.timelineZoom * 1.25).clamp(1, 400);
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.zoomOut:
         s.timelineZoom = (s.timelineZoom / 1.25).clamp(1, 400);
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.zoomFit:
         s.timelineZoom = -1; // sentinel = fit
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.toolSelect:
         s.tool = 'select';
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.toolRazor:
         s.tool = 'razor';
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.toolRipple:
         s.tool = 'ripple';
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.toolSlip:
         s.tool = 'slip';
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.toolSlide:
         s.tool = 'slide';
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.selectAll:
         if (seq == null) break;
         s.selectedClips
           ..clear()
           ..addAll(seq.tracks.expand((t) => t.clips.map((c) => c.id)));
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.deselect:
         s.clearSelection();
@@ -279,7 +279,7 @@ class _EditorAppState extends State<EditorApp> {
         break;
       case Commands.toggleFullscreen:
         s.fullscreenPreview = !s.fullscreenPreview;
-        s.notifyListeners();
+        s.refresh();
         break;
       case Commands.renderZone:
         _renderZone();
@@ -415,6 +415,7 @@ class _EditorAppState extends State<EditorApp> {
     final p = r.isEmpty ? null : r.single.path;
     if (p == null) return;
     if (p.endsWith('.kdenlive')) {
+      if (!mounted) return;
       await importKdenlive(context, widget.state, p);
     } else {
       await widget.state.openProject(p);
@@ -456,7 +457,7 @@ class _EditorAppState extends State<EditorApp> {
     s.status(missing.isEmpty
         ? 'All media online'
         : '${missing.length} asset(s) still offline');
-    s.notifyListeners();
+    s.refresh();
   }
 
   void _saveLayout() {
@@ -601,6 +602,7 @@ class _EditorAppState extends State<EditorApp> {
         final r = await FilePicker.pickFiles(
             type: FileType.custom, allowedExtensions: ['kdenlive', 'xml']);
         if (r.isNotEmpty && r.single.path != null) {
+          if (!mounted) break;
           await importKdenlive(context, s, r.single.path!);
         }
         break;

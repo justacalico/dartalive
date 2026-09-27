@@ -274,8 +274,8 @@ class GraphBuilder {
     // normalize to project frame, transparency-capable
     var s = _ctx.lab();
     _ctx.emit(
-        '[$src]scale=w=${width}:h=${height}:force_original_aspect_ratio=decrease,'
-        'pad=${width}:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
+        '[$src]scale=w=$width:h=$height:force_original_aspect_ratio=decrease,'
+        'pad=$width:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
         'setsar=1,format=rgba[$s]');
 
     // effects chain (may segment at keyframes)
@@ -406,8 +406,8 @@ class GraphBuilder {
     }
     var b = _ctx.lab();
     _ctx.emit(
-        '[$base]scale=w=${width}:h=${height}:force_original_aspect_ratio=decrease,'
-        'pad=${width}:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
+        '[$base]scale=w=$width:h=$height:force_original_aspect_ratio=decrease,'
+        'pad=$width:$height:(ow-iw)/2:(oh-ih)/2:color=black@0,'
         'setsar=1,format=rgba[$b]');
     // prev's effects applied to its tail too (evaluated at its last frames)
     final fakePrev = prev.clone('${prev.id}_tail')
@@ -792,7 +792,9 @@ class GraphBuilder {
     for (final c in t.clips) {
       if (c.id == clip.id) continue;
       if (c.end <= clip.position &&
-          (prev == null || c.end > prev.end)) prev = c;
+          (prev == null || c.end > prev.end)) {
+        prev = c;
+      }
     }
     return prev;
   }

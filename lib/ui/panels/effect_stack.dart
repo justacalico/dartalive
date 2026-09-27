@@ -339,7 +339,7 @@ class _EffectStackPanelState extends State<EffectStackPanel> {
                   s.dirty = true;
                   s.frameServer.invalidate();
                 }
-                s.notifyListeners();
+                s.refresh();
               },
               onChangeEnd: (_) => s.endGesture(),
             ),
