@@ -79,7 +79,7 @@ EOC
 exec "\$(dirname "\$0")/usr/bin/$NAME" "\$@"
 EOC
   chmod +x "$AI/AppRun"
-  ln -sf "usr/bin/dartalive.png" "$AI/$NAME.png" 2>/dev/null || cp "$BUNDLE/dartalive.png" "$AI/$NAME.png" 2>/dev/null || true
-  (cd "$AI" && ln -sf "$NAME.desktop" "usr/share/applications/$NAME.desktop" || true)
+  [ -f "$BUNDLE/dartalive.png" ] && cp "$BUNDLE/dartalive.png" "$AI/$NAME.png" || true
+
   ARCH=x86_64 /tmp/appimagetool "$AI" "$OUT/$NAME-${VER#v}-x86_64.AppImage" || echo "appimagetool failed"
 fi
