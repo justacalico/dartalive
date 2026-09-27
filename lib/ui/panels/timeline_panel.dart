@@ -575,7 +575,15 @@ class _TimelinePanelState extends State<TimelinePanel> {
             });
           }
         },
-        builder: (_, cand, __) => _ClipWidget(
+        builder: (_, cand, __) => GestureDetector(
+        onDoubleTap: () {
+          if (a != null &&
+              a.type == AssetType.sequence &&
+              a.sequenceId != null) {
+            s.openSequence(a.sequenceId!);
+          }
+        },
+        child: _ClipWidget(
         clip: c,
         track: track,
         seq: seq,
@@ -587,7 +595,7 @@ class _TimelinePanelState extends State<TimelinePanel> {
         offline: offline,
         isVideo: isV,
         isEffectHover: cand.isNotEmpty,
-      )),
+      ))),
     );
   }
 
