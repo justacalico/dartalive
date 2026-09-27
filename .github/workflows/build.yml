@@ -1,0 +1,243 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      build_all:
+        description: 'Build all targets (linux, linux-arm64, windows, windows-arm64, macos, web)'
+        type: boolean
+        default: true
+      create_release:
+        description: 'Create a versioned release from this build'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: "3.44.6"
+
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  setup:
+    name: Setup build metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      build_number: ${{ steps.meta.outputs.build_number }}
+      targets: ${{ steps.meta.outputs.targets }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Read version and build metadata
+        id: meta
+        run: |
+          VERSION=$(sed -n 's/^version: \(.*\)/\1/p' pubspec.yaml | head -1 | cut -d+ -f1)
+          BUILD_NUMBER=$(date +%s | cut -c4-10)
+          BUILD_ALL="${{ inputs.build_all || 'true' }}"
+          if [ "$BUILD_ALL" = "true" ]; then
+            TARGETS='[{"target":"linux","os":"ubuntu-latest"},{"target":"linux-arm64","os":"ubuntu-24.04-arm","flutter":"git"},{"target":"windows","os":"windows-latest"},{"target":"windows-arm64","os":"windows-11-arm","flutter":"git"},{"target":"macos","os":"macos-latest","flutter_arch":"arm64"},{"target":"web","os":"ubuntu-latest"}]'
+          else
+            TARGETS='[{"target":"linux","os":"ubuntu-latest"}]'
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
+
+  verify-frontend:
+    name: Verify frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Install cocogitto + ffmpeg + xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb lcov
+          curl -fsSL --retry 3 -o /tmp/cog.tar.gz "https://github.com/cocogitto/cocogitto/releases/download/7.0.0/cocogitto-7.0.0-x86_64-unknown-linux-musl.tar.gz"
+          mkdir -p /tmp/cog && tar -xzf /tmp/cog.tar.gz -C /tmp/cog
+          sudo install -m 755 /tmp/cog/x86_64-unknown-linux-musl/cog /usr/local/bin/cog
+      - name: Check commits
+        run: cog check
+      - name: Analyze and test
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get
+          flutter analyze --no-pub
+          xvfb-run -a flutter test --coverage --no-pub
+          lcov --remove coverage/lcov.info '**/*.g.dart' '**/*.freezed.dart' '**/l10n/**' -o coverage/lcov.cleaned.info || true
+          lcov --summary coverage/lcov.cleaned.info || true
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [setup, verify-frontend]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.setup.outputs.targets) }}
+    env:
+      VERSION: ${{ needs.setup.outputs.version }}
+      BUILD_NUMBER: ${{ needs.setup.outputs.build_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Flutter
+        if: matrix.flutter != 'git'
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          architecture: ${{ matrix.flutter_arch || 'x64' }}
+          cache: true
+
+      - name: Install Flutter from source (arm64)
+        if: matrix.flutter == 'git'
+        shell: bash
+        run: |
+          git clone --depth 1 --branch "${{ env.FLUTTER_VERSION }}" https://github.com/flutter/flutter.git "$HOME/flutter-sdk"
+          echo "$HOME/flutter-sdk/bin" >> "$GITHUB_PATH"
+          "$HOME/flutter-sdk/bin/flutter" precache
+
+      - name: Install Linux build deps
+        if: startsWith(matrix.target, 'linux')
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang cmake ninja-build pkg-config libgtk-3-dev libblkid-dev liblzma-dev zip dpkg-dev rpm curl
+
+      - name: Build Linux
+        if: matrix.target == 'linux' || matrix.target == 'linux-arm64'
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get
+          flutter build linux --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+          SUFFIX=""
+          [ "${{ matrix.target }}" = "linux-arm64" ] && SUFFIX="-arm64"
+          OUT="artifacts"; mkdir -p "$OUT"
+          BUNDLE="build/linux/$( [ "${{ matrix.target }}" = "linux-arm64" ] && echo arm64 || echo x64)/release/bundle"
+          tar -czf "$OUT/dartalive-linux$SUFFIX.tar.gz" -C "$BUNDLE" .
+          (cd "$BUNDLE" && zip -qr "$OUT/dartalive-linux$SUFFIX.zip" .)
+          if [ "${{ matrix.target }}" = "linux" ]; then
+            bash scripts/package-linux.sh "$BUNDLE" "$OUT" dartalive "$VERSION"
+          fi
+
+      - name: Build Windows
+        if: matrix.target == 'windows' || matrix.target == 'windows-arm64'
+        shell: bash
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get
+          flutter build windows --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+          SUFFIX="x86_64"
+          [ "${{ matrix.target }}" = "windows-arm64" ] && SUFFIX="arm64"
+          mkdir -p artifacts
+          cd build/windows/*/runner/Release
+          7z a "../../../../artifacts/dartalive-windows-$SUFFIX.zip" .
+
+      - name: Build macOS
+        if: matrix.target == 'macos'
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get
+          flutter build macos --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+          mkdir -p artifacts dmg-src
+          cp -R "build/macos/Build/Products/Release/dartalive.app" dmg-src/
+          (cd dmg-src && zip -qr ../artifacts/dartalive-macos-arm64.zip dartalive.app)
+          hdiutil create -volname DartAlive -srcfolder dmg-src -ov -format UDZO artifacts/dartalive-macos-arm64.dmg
+
+      - name: Build Web (landing page)
+        if: matrix.target == 'web'
+        run: |
+          flutter config --no-analytics >/dev/null
+          flutter pub get
+          flutter build web --release --build-name "$VERSION" --build-number "$BUILD_NUMBER"
+          mkdir -p artifacts
+          tar -czf artifacts/dartalive-web.tar.gz -C build/web .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: artifacts/
+
+  release:
+    name: Create GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: artifacts
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+
+  nightly:
+    name: Nightly release
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*"
+          path: artifacts
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: Nightly ${{ needs.setup.outputs.version }}
+          files: artifacts/*
+          prerelease: true
+
+  gitlab-sync:
+    name: Sync release back to GitLab
+    if: always()
+    needs: [release, nightly]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger GitLab release-sync pipeline
+        env:
+          GITLAB_TRIGGER_TOKEN: ${{ secrets.GITLAB_TRIGGER_TOKEN }}
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+        run: |
+          if [ -z "$GITLAB_TRIGGER_TOKEN" ] || [ -z "$GITLAB_PROJECT_ID" ]; then
+            echo "no gitlab trigger configured, skipping"
+            exit 0
+          fi
+          TAG="${{ github.ref_type == 'tag' && github.ref_name || 'nightly' }}"
+          curl -sf --request POST \
+            --form "token=$GITLAB_TRIGGER_TOKEN" \
+            --form "ref=main" \
+            --form "variables[RELEASE_TAG]=$TAG" \
+            --form "variables[GITHUB_RUN_ID]=${{ github.run_id }}" \
+            "https://gitlab.com/api/v4/projects/$GITLAB_PROJECT_ID/trigger/pipeline"

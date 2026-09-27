@@ -126,3 +126,7 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Bundle the app icon next to the binary so the runner can load it.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/dartalive.png"
+        DESTINATION "${CMAKE_INSTALL_PREFIX}" RENAME "dartalive.png")
