@@ -83,7 +83,14 @@ class _TimelinePanelState extends State<TimelinePanel> {
       _toolbar(seq),
       Expanded(
         child: Row(children: [
-          SizedBox(width: 132, child: _headers(seq)),
+          SizedBox(
+            width: 132,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context)
+                  .copyWith(scrollbars: false),
+              child: _headers(seq),
+            ),
+          ),
           Expanded(
             child: Column(children: [
               SizedBox(
