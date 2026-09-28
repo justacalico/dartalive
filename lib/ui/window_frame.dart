@@ -29,10 +29,12 @@ class WindowTitleBar extends StatelessWidget {
     return Container(
       height: 32,
       color: Colors.transparent,
-      child: const DragToMoveArea(
+      padding: const EdgeInsets.only(left: 8),
+      child: DragToMoveArea(
         child: Row(children: [
-          Spacer(),
-          WindowButtons(),
+          Image.asset('assets/icon-1024.png', width: 18, height: 18),
+          const Spacer(),
+          const WindowButtons(),
         ]),
       ),
     );

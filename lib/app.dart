@@ -513,6 +513,8 @@ class _EditorAppState extends State<EditorApp> {
       padding: const EdgeInsets.only(left: 8),
       child: DragToMoveArea(
         child: Row(children: [
+          Image.asset('assets/icon-1024.png', width: 18, height: 18),
+          const SizedBox(width: 6),
           const Text('dartalive',
               style: TextStyle(
                   color: AppTheme.accent,
