@@ -19,43 +19,43 @@ class _ProgramMonitorState extends State<ProgramMonitor> {
     final s = widget.state;
     return Column(children: [
       Expanded(
-        child: Container(
-          color: Colors.black,
-          child: ValueListenableBuilder(
+        child: ValueListenableBuilder(
             valueListenable: s.frameImage,
             builder: (_, img, child) {
-              return Stack(fit: StackFit.expand, children: [
-                if (img != null)
-                  RawImage(
-                      image: img,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.medium),
-                if (img == null)
-                  const Center(
-                      child: Icon(Icons.movie_outlined,
-                          color: Color(0xff333340), size: 56)),
-                Positioned(
-                  left: 8, top: 6,
-                  child: _hud(s.displayTime),
-                ),
-                if (s.sequence != null)
-                  Positioned(
-                    right: 8, top: 6,
-                    child: _hud(s.sequence!.name),
-                  ),
-                if (s.offlineAssets.isNotEmpty)
-                  const Positioned(
-                    left: 8, bottom: 6,
-                    child: Text('MEDIA OFFLINE',
-                        style: TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold)),
-                  ),
-              ]);
+              return Container(
+                color: img == null ? AppTheme.bg : Colors.black,
+                child: Stack(fit: StackFit.expand, children: [
+                    if (img != null)
+                      RawImage(
+                          image: img,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.medium),
+                    if (img == null)
+                      const Center(
+                          child: Icon(Icons.movie_outlined,
+                              color: Color(0xff333340), size: 56)),
+                    Positioned(
+                      left: 8, top: 6,
+                      child: _hud(s.displayTime),
+                    ),
+                    if (s.sequence != null)
+                      Positioned(
+                        right: 8, top: 6,
+                        child: _hud(s.sequence!.name),
+                      ),
+                    if (s.offlineAssets.isNotEmpty)
+                      const Positioned(
+                        left: 8, bottom: 6,
+                        child: Text('MEDIA OFFLINE',
+                            style: TextStyle(
+                                color: Colors.redAccent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                  ]),
+              );
             },
           ),
-        ),
       ),
       _transport(),
     ]);

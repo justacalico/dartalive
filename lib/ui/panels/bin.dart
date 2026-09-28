@@ -43,8 +43,13 @@ class _BinPanelState extends State<BinPanel> {
       Expanded(
         child: assets.isEmpty
             ? const Center(
-                child: Text('Drop or import media',
-                    style: TextStyle(color: AppTheme.textDim)))
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.video_library_outlined,
+                      size: 40, color: Color(0xff333340)),
+                  SizedBox(height: 10),
+                  Text('Drop or import media',
+                      style: TextStyle(color: AppTheme.textDim)),
+                ]))
             : ListView.builder(
                 itemCount: assets.length,
                 itemBuilder: (_, i) => _row(assets[i]),

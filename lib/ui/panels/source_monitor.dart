@@ -80,20 +80,30 @@ class _SourceMonitorState extends State<SourceMonitor> {
         : (s.selectedAssetId != null
             ? s.project.assetById(s.selectedAssetId!)
             : null);
+    final hasVideo =
+        a != null && a.type != AssetType.audio && _controller != null;
     return Column(children: [
       Expanded(
         child: Container(
-          color: Colors.black,
+          color: hasVideo ? Colors.black : AppTheme.bg,
           child: a == null || a.type == AssetType.audio
               ? Center(
-                  child: a == null
-                      ? const Text('No clip selected',
-                          style: TextStyle(color: AppTheme.textDim))
-                      : const Icon(Icons.graphic_eq,
-                          size: 48, color: AppTheme.textDim))
-              : _controller == null
-                  ? const SizedBox()
-                  : Video(controller: _controller!),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(
+                        a == null
+                            ? Icons.smart_display_outlined
+                            : Icons.graphic_eq,
+                        size: 44,
+                        color: const Color(0xff333340)),
+                    if (a == null) ...[
+                      const SizedBox(height: 10),
+                      const Text('No clip selected',
+                          style: TextStyle(color: AppTheme.textDim)),
+                    ],
+                  ]))
+              : hasVideo
+                  ? Video(controller: _controller!)
+                  : const SizedBox(),
         ),
       ),
       _transport(s, a),
