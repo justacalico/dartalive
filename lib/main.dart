@@ -8,6 +8,7 @@ import 'landing.dart';
 import 'state/editor_state.dart';
 import 'state/settings.dart';
 import 'theme.dart';
+import 'ui/window_frame.dart';
 import 'io/kdenlive_import.dart';
 
 void main() async {
@@ -20,6 +21,8 @@ void main() async {
           size: Size(1600, 920),
           minimumSize: Size(960, 540),
           title: 'DartAlive',
+          titleBarStyle: TitleBarStyle.hidden,
+          windowButtonVisibility: false,
           backgroundColor: AppTheme.bg);
       windowManager.waitUntilReadyToShow(opts, () async {
         await windowManager.show();
@@ -56,7 +59,7 @@ class EditorAppRoot extends StatelessWidget {
       title: 'DartAlive',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.build(),
-      home: EditorApp(state: state),
+      home: WindowFrame(child: EditorApp(state: state)),
     );
   }
 }

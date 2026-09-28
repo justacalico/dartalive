@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../state/editor_state.dart';
 import '../theme.dart';
 import 'dialogs.dart';
+import 'window_frame.dart';
 
 /// Startup screen — open recent, open, or create a project.
 class WelcomeScreen extends StatelessWidget {
@@ -18,6 +19,7 @@ class WelcomeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Column(children: [
+            if (isDesktop) const WindowTitleBar(),
             _banner(),
             Padding(
               padding: const EdgeInsets.fromLTRB(28, 22, 28, 12),

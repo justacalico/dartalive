@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 
 import 'models/model.dart';
 import 'models/sequence_ops.dart';
@@ -12,6 +13,7 @@ import 'theme.dart';
 import 'ui/dialogs.dart';
 import 'ui/dock.dart';
 import 'ui/welcome.dart';
+import 'ui/window_frame.dart';
 import 'ui/panels/bin.dart';
 import 'ui/panels/effect_stack.dart';
 import 'ui/panels/effects_library.dart';
@@ -506,62 +508,65 @@ class _EditorAppState extends State<EditorApp> {
   Widget _menuBar() {
     final s = widget.state;
     return Container(
-      height: 30,
+      height: 32,
       color: AppTheme.header,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(children: [
-        const Text('dartalive',
-            style: TextStyle(
-                color: AppTheme.accent,
-                fontWeight: FontWeight.w700,
-                fontSize: 12,
-                letterSpacing: 0.5)),
-        const SizedBox(width: 14),
-        _menu('File', [
-          ('New project', Commands.newProject),
-          ('Open…', Commands.openProject),
-          ('Import media…', Commands.importMedia),
-          ('Import Kdenlive project…', ''),
-          ('Save', Commands.save),
-          ('Save as…', Commands.saveAs),
-          ('Export…', Commands.export),
+      padding: const EdgeInsets.only(left: 8),
+      child: DragToMoveArea(
+        child: Row(children: [
+          const Text('dartalive',
+              style: TextStyle(
+                  color: AppTheme.accent,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  letterSpacing: 0.5)),
+          const SizedBox(width: 14),
+          _menu('File', [
+            ('New project', Commands.newProject),
+            ('Open…', Commands.openProject),
+            ('Import media…', Commands.importMedia),
+            ('Import Kdenlive project…', ''),
+            ('Save', Commands.save),
+            ('Save as…', Commands.saveAs),
+            ('Export…', Commands.export),
+          ]),
+          _menu('Edit', [
+            ('Undo', Commands.undo),
+            ('Redo', Commands.redo),
+            ('Copy', Commands.copyClip),
+            ('Paste', Commands.pasteClip),
+            ('Delete', Commands.delete),
+            ('Ripple delete', Commands.rippleDelete),
+            ('Select all', Commands.selectAll),
+          ]),
+          _menu('Sequence', [
+            ('New sequence', Commands.newSequence),
+            ('Cut at playhead', Commands.cut),
+            ('Add transition', Commands.addTransition),
+            ('Add marker', Commands.addMarker),
+            ('Lift in/out', Commands.lift),
+            ('Extract in/out', Commands.extract),
+            ('Render zone', Commands.renderZone),
+          ]),
+          _menu('View', [
+            ('Layout: Editing', ''),
+            ('Layout: Color', ''),
+            ('Layout: Audio', ''),
+            ('Toggle fullscreen preview', Commands.toggleFullscreen),
+          ]),
+          _menu('Tools', [
+            ('Settings…', ''),
+            ('Keyboard shortcuts…', ''),
+            ('Relocate missing media', Commands.findMedia),
+          ]),
+          const Spacer(),
+          Text(s.project.name,
+              style: const TextStyle(color: AppTheme.textDim, fontSize: 11)),
+          if (s.dirty)
+            const Text(' •',
+                style: TextStyle(color: AppTheme.accent, fontSize: 16)),
+          const WindowButtons(),
         ]),
-        _menu('Edit', [
-          ('Undo', Commands.undo),
-          ('Redo', Commands.redo),
-          ('Copy', Commands.copyClip),
-          ('Paste', Commands.pasteClip),
-          ('Delete', Commands.delete),
-          ('Ripple delete', Commands.rippleDelete),
-          ('Select all', Commands.selectAll),
-        ]),
-        _menu('Sequence', [
-          ('New sequence', Commands.newSequence),
-          ('Cut at playhead', Commands.cut),
-          ('Add transition', Commands.addTransition),
-          ('Add marker', Commands.addMarker),
-          ('Lift in/out', Commands.lift),
-          ('Extract in/out', Commands.extract),
-          ('Render zone', Commands.renderZone),
-        ]),
-        _menu('View', [
-          ('Layout: Editing', ''),
-          ('Layout: Color', ''),
-          ('Layout: Audio', ''),
-          ('Toggle fullscreen preview', Commands.toggleFullscreen),
-        ]),
-        _menu('Tools', [
-          ('Settings…', ''),
-          ('Keyboard shortcuts…', ''),
-          ('Relocate missing media', Commands.findMedia),
-        ]),
-        const Spacer(),
-        Text(s.project.name,
-            style: const TextStyle(color: AppTheme.textDim, fontSize: 11)),
-        if (s.dirty)
-          const Text(' •',
-              style: TextStyle(color: AppTheme.accent, fontSize: 16)),
-      ]),
+      ),
     );
   }
 
