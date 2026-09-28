@@ -2,6 +2,15 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.2.0](https://gitlab.com/HttpAnimations/dartalive/compare/2d7f71cf63f90d7ac779dc95164ae6399441452b..v0.2.0) - 2026-09-28
+#### Features
+- 启动欢迎页 - 打开/新建/最近项目 - ([2d7f71c](https://gitlab.com/HttpAnimations/dartalive/commit/2d7f71cf63f90d7ac779dc95164ae6399441452b)) - HttpAnimations
+#### Bug Fixes
+- 时间轴轨道头去掉重复的纵向滚动条 - ([6748787](https://gitlab.com/HttpAnimations/dartalive/commit/67487879262762db0c97a1a80d79c591e75b4325)) - HttpAnimations
+- 声明 assets 目录让欢迎页图标加载 - ([057e1f9](https://gitlab.com/HttpAnimations/dartalive/commit/057e1f9f7b0b8aaca5785625a03df457ecdfefdd)) - HttpAnimations
+
+- - -
+
 ## [v0.1.1](https://gitlab.com/HttpAnimations/dartalive/compare/51d7ea93c7813deaa31bf6677e42203d7a67d31e..v0.1.1) - 2026-09-27
 #### Bug Fixes
 - 对话框订阅取消 - ([bdf9691](https://gitlab.com/HttpAnimations/dartalive/commit/bdf9691b5fe7ca973733f69cc1861de6fa4d18fb)) - HttpAnimations
