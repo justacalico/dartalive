@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v0.3.0](https://gitlab.com/HttpAnimations/dartalive/compare/b6ace99f36af1461db46b1f360cb564cc172a467..v0.3.0) - 2026-09-28
+#### Features
+- 桌面端用自定义标题栏替换原生标题栏 - ([b6ace99](https://gitlab.com/HttpAnimations/dartalive/commit/b6ace99f36af1461db46b1f360cb564cc172a467)) - HttpAnimations
+
+- - -
+
 ## [v0.2.0](https://gitlab.com/HttpAnimations/dartalive/compare/2d7f71cf63f90d7ac779dc95164ae6399441452b..v0.2.0) - 2026-09-28
 #### Features
 - 启动欢迎页 - 打开/新建/最近项目 - ([2d7f71c](https://gitlab.com/HttpAnimations/dartalive/commit/2d7f71cf63f90d7ac779dc95164ae6399441452b)) - HttpAnimations
